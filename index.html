@@ -11,18 +11,37 @@
     // - Web服务 Key：用于 restapi.amap.com/v3/geocode/geo
     const AMAP_JS_KEY  = "02cb6240c341113e242b757c9c31f120";  // TODO: 替换成你的 JS API Key
     const AMAP_WEB_KEY = "6beb081c646f5b3396228c8131d39025";  // TODO: 替换成你的 Web服务 Key
+    // ⚠️ 如你的高德控制台启用了「JS安全密钥」(securityJsCode)，请在此填写，否则移动端/部分网络环境可能加载失败。
+    const AMAP_SECURITY_JS_CODE = ""; // TODO: 可选：填写你的 securityJsCode
     const DEFAULT_CITY = "成都";
   </script>
 
   <!-- AMap JS SDK -->
   <script>
     (function loadAmapSDK() {
-      const s = document.createElement("script");
-      s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(AMAP_JS_KEY)}&plugin=AMap.Scale,AMap.ToolBar`;
-      s.async = true;
-      s.onerror = () => alert("高德地图 SDK 加载失败：请检查网络或 AMAP_JS_KEY。");
-      document.head.appendChild(s);
-    })();
+  const old = document.getElementById("amap-sdk");
+  if (old) old.remove();
+
+  if (typeof AMAP_SECURITY_JS_CODE === "string" && AMAP_SECURITY_JS_CODE.trim()) {
+    window._AMapSecurityConfig = { securityJsCode: AMAP_SECURITY_JS_CODE.trim() };
+  }
+
+  const s = document.createElement("script");
+  s.id = "amap-sdk";
+  s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(AMAP_JS_KEY)}&plugin=AMap.Scale,AMap.ToolBar`;
+  s.async = true;
+  s.onload = () => {
+    if (typeof showToast === "function") showToast("地图SDK已加载");
+  };
+  s.onerror = () => {
+    if (typeof showToast === "function") showToast("地图SDK加载失败（检查网络/Key/安全密钥）");
+    alert("高德地图 SDK 加载失败：
+1) 检查网络是否能访问 webapi.amap.com
+2) 检查 AMAP_JS_KEY 是否正确、是否绑定了域名/来源
+3) 如启用了 JS安全密钥，请填写 AMAP_SECURITY_JS_CODE");
+  };
+  document.head.appendChild(s);
+})();
   </script>
 
   <!-- SheetJS（Excel/CSV 解析） -->
@@ -333,26 +352,7 @@
     try { return JSON.parse(s); } catch { return fallback; }
   }
 
- async function loadKBFromRemoteOrLocal(){
-  // 1) 先尝试加载共享 kb.json（GitHub Pages 同目录）
-  try{
-    const r = await fetch("./kb.json", { cache: "no-store" });
-    if (r.ok) {
-      const remote = await r.json();
-      if (remote && Array.isArray(remote.items)) {
-        saveKB(remote); // 写入 localStorage，作为本地缓存
-        if (typeof showToast === "function") showToast("已加载共享知识库");
-        return remote;
-      }
-    }
-  }catch(e){
-    // 忽略，走本地
-  }
-}
-
-  // 2) 回退到本地
-  const local = loadKBFromRemoteOrLocal();
-  showToast("已加载本地知识库");
+  function loadKB(){
     const v = safeJsonParse(localStorage.getItem(LS_KEYS.kb), null);
     if (!v || typeof v !== "object") return { version: 1, items: [] };
     if (!Array.isArray(v.items)) v.items = [];
@@ -360,6 +360,30 @@
     return v;
   }
 
+
+// 共享知识库：GitHub Pages 同目录下的 kb.json（所有访问者都能看到同一份默认数据）
+// - 成功加载后会写入 localStorage，作为本地缓存
+// - 如果 kb.json 不存在/加载失败，则回退到本地 localStorage
+async function loadKBFromRemoteOrLocal(){
+  // 1) 远程 kb.json
+  try{
+    const r = await fetch("./kb.json", { cache: "no-store" });
+    if (r.ok) {
+      const remote = await r.json();
+      if (remote && typeof remote === "object" && Array.isArray(remote.items)) {
+        if (!remote.version) remote.version = 1;
+        saveKB(remote);
+        if (typeof showToast === "function") showToast("已加载共享知识库");
+        return remote;
+      }
+    }
+  }catch(e){ /* ignore */ }
+
+  // 2) 回退到本地
+  const local = loadKB();
+  if (typeof showToast === "function") showToast("已加载本地知识库");
+  return local;
+}
   function saveKB(kb){
     localStorage.setItem(LS_KEYS.kb, JSON.stringify(kb));
   }
@@ -392,14 +416,34 @@
   let markers = []; // {id, marker}
   let mapReady = false;
 
-  function waitAmapReady(){
+  
+
+function retryLoadAmap(){
+  try{
+    const old = document.getElementById("amap-sdk");
+    if (old) old.remove();
+    if (typeof AMAP_SECURITY_JS_CODE === "string" && AMAP_SECURITY_JS_CODE.trim()) {
+      window._AMapSecurityConfig = { securityJsCode: AMAP_SECURITY_JS_CODE.trim() };
+    }
+    const s = document.createElement("script");
+    s.id = "amap-sdk";
+    s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(AMAP_JS_KEY)}&plugin=AMap.Scale,AMap.ToolBar`;
+    s.async = true;
+    s.onload = () => { if (typeof showToast==="function") showToast("地图SDK已重新加载"); };
+    s.onerror = () => { if (typeof showToast==="function") showToast("地图SDK重试失败"); };
+    document.head.appendChild(s);
+  } catch(e){
+    console.error(e);
+  }
+}
+function waitAmapReady(){
     return new Promise((resolve, reject) => {
       const t0 = Date.now();
       const timer = setInterval(() => {
         if (window.AMap && typeof window.AMap.Map === "function") {
           clearInterval(timer); resolve();
-        } else if (Date.now() - t0 > 15000) {
-          clearInterval(timer); reject(new Error("AMap 加载超时（检查 AMAP_JS_KEY 或网络）"));
+        } else if (Date.now() - t0 > 45000) {
+          clearInterval(timer); reject(new Error("AMap 加载超时（45s）。请检查：网络是否可访问 webapi.amap.com；AMAP_JS_KEY 是否允许当前来源；如启用 JS安全密钥请填写 AMAP_SECURITY_JS_CODE。"));
         }
       }, 100);
     });
@@ -432,7 +476,8 @@ try {
   console.error(err);
   log("地图初始化失败：" + (err?.message || String(err)));
   showToast("地图初始化失败");
-  alert("地图初始化失败：\n" + (err?.message || String(err)));
+  alert("地图初始化失败：\n" + (err?.message || String(err)) + "\n\n你可以：\n- 确保使用 https 打开页面（不要用 file://）\n- 确认 AMAP_JS_KEY 允许当前来源（域名/端口/本机IP）\n- 如启用了 JS安全密钥，填写 AMAP_SECURITY_JS_CODE\n- 然后将自动尝试重试加载 SDK");
+            try{ retryLoadAmap(); }catch(e){}
   throw err;
 }
 
@@ -597,7 +642,7 @@ try {
   }
 
   // ---------- KB CRUD ----------
-  let kb = loadKBFromRemoteOrLocal(); // {version, items[]}
+  let kb = { version: 1, items: [] }; // 将在启动时加载共享/本地知识库
   let editingId = null;
 
   function upsertItem(item, mode){
@@ -994,7 +1039,7 @@ async function relocalizeItem(id){
   btnClearCache.addEventListener("click", () => {
     if (!confirm("这会清空知识库与坐标缓存，确定继续？")) return;
     clearAllCache();
-    kb = loadKBFromRemoteOrLocal();
+    kb = loadKB();
     log("已清空：知识库 + 坐标缓存。");
     showToast("已清空数据");
     renderAll();
@@ -1087,30 +1132,21 @@ function showToast(msg, dur = 2000){
 
 
   // ---------- Boot ----------
-  (async () => {
+(async () => {
   try {
-
-    log("初始化中…");
-
-    // ⭐ 1. 先加载共享知识库
+    // 先加载共享知识库（kb.json），保证所有访问者默认看到同一份数据
     kb = await loadKBFromRemoteOrLocal();
 
-    // ⭐ 2. 初始化地图
     await initMap();
-
-    // ⭐ 3. 渲染
     renderCatFilter();
     renderAll();
-
-    showToast("系统初始化完成");
-
+    if (typeof showToast === "function") showToast("系统初始化完成");
   } catch (e) {
     log("初始化失败：" + (e?.message || String(e)));
-    renderAll(); // 即使地图失败，知识库仍显示
+    if (typeof showToast === "function") showToast("初始化失败");
+    renderAll(); // 仍可用知识库列表
   }
 })();
-
-  
 </script>
 
 <div id="toast" class="toast"></div>
