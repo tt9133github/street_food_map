@@ -333,7 +333,7 @@
     try { return JSON.parse(s); } catch { return fallback; }
   }
 
-  function loadKB(){
+  function loadKBFromRemoteOrLocal(){
   // 1) 先尝试从 GitHub Pages 同目录加载 kb.json
   try{
     const r = await fetch("./kb.json", { cache: "no-store" });
@@ -348,7 +348,7 @@
   }catch(e){ /* ignore */ }
 
   // 2) 回退到本地
-  const local = loadKB();
+  const local = loadKBFromRemoteOrLocal();
   showToast("已加载本地知识库");
     const v = safeJsonParse(localStorage.getItem(LS_KEYS.kb), null);
     if (!v || typeof v !== "object") return { version: 1, items: [] };
@@ -594,7 +594,7 @@ try {
   }
 
   // ---------- KB CRUD ----------
-  let kb = loadKB(); // {version, items[]}
+  let kb = loadKBFromRemoteOrLocal(); // {version, items[]}
   let editingId = null;
 
   function upsertItem(item, mode){
@@ -991,7 +991,7 @@ async function relocalizeItem(id){
   btnClearCache.addEventListener("click", () => {
     if (!confirm("这会清空知识库与坐标缓存，确定继续？")) return;
     clearAllCache();
-    kb = loadKB();
+    kb = loadKBFromRemoteOrLocal();
     log("已清空：知识库 + 坐标缓存。");
     showToast("已清空数据");
     renderAll();
@@ -1085,15 +1085,23 @@ function showToast(msg, dur = 2000){
 
   // ---------- Boot ----------
   (async () => {
-    try {
-      await initMap();
-      renderCatFilter();
-      renderAll();
-    } catch (e) {
-      log("初始化失败：" + (e?.message || String(e)));
-      renderAll(); // 仍可用知识库列表
-    }
+  try {
+
+    // ⭐ 先加载共享知识库
+    kb = await loadKBFromRemoteOrLocal();
+
+    // ⭐ 再初始化地图
+    await initMap();
+
+    renderCatFilter();
+    renderAll();
+
+  } catch (e) {
+    log("初始化失败：" + (e?.message || String(e)));
+    renderAll(); // 仍可用知识库列表
+  }
   })();
+
 </script>
 
 <div id="toast" class="toast"></div>
