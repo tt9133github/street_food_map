@@ -334,6 +334,22 @@
   }
 
   function loadKB(){
+  // 1) 先尝试从 GitHub Pages 同目录加载 kb.json
+  try{
+    const r = await fetch("./kb.json", { cache: "no-store" });
+    if (r.ok) {
+      const remote = await r.json();
+      if (remote && Array.isArray(remote.items)) {
+        saveKB(remote);          // 写入 localStorage，方便本地使用
+        showToast("已加载共享知识库");
+        return remote;
+      }
+    }
+  }catch(e){ /* ignore */ }
+
+  // 2) 回退到本地
+  const local = loadKB();
+  showToast("已加载本地知识库");
     const v = safeJsonParse(localStorage.getItem(LS_KEYS.kb), null);
     if (!v || typeof v !== "object") return { version: 1, items: [] };
     if (!Array.isArray(v.items)) v.items = [];
