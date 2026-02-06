@@ -348,11 +348,6 @@
   }catch(e){
     // 忽略，走本地
   }
-
-  // 2) 回退到本地
-  const local = loadKB();
-  if (typeof showToast === "function") showToast("已加载本地知识库");
-  return local;
 }
 
   // 2) 回退到本地
