@@ -1087,21 +1087,27 @@ function showToast(msg, dur = 2000){
   (async () => {
   try {
 
-    // ⭐ 先加载共享知识库
+    log("初始化中…");
+
+    // ⭐ 1. 先加载共享知识库
     kb = await loadKBFromRemoteOrLocal();
 
-    // ⭐ 再初始化地图
+    // ⭐ 2. 初始化地图
     await initMap();
 
+    // ⭐ 3. 渲染
     renderCatFilter();
     renderAll();
 
+    showToast("系统初始化完成");
+
   } catch (e) {
     log("初始化失败：" + (e?.message || String(e)));
-    renderAll(); // 仍可用知识库列表
+    renderAll(); // 即使地图失败，知识库仍显示
   }
-  })();
+})();
 
+  
 </script>
 
 <div id="toast" class="toast"></div>
