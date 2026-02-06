@@ -333,19 +333,27 @@
     try { return JSON.parse(s); } catch { return fallback; }
   }
 
-  function loadKBFromRemoteOrLocal(){
-  // 1) 先尝试从 GitHub Pages 同目录加载 kb.json
+ async function loadKBFromRemoteOrLocal(){
+  // 1) 先尝试加载共享 kb.json（GitHub Pages 同目录）
   try{
     const r = await fetch("./kb.json", { cache: "no-store" });
     if (r.ok) {
       const remote = await r.json();
       if (remote && Array.isArray(remote.items)) {
-        saveKB(remote);          // 写入 localStorage，方便本地使用
-        showToast("已加载共享知识库");
+        saveKB(remote); // 写入 localStorage，作为本地缓存
+        if (typeof showToast === "function") showToast("已加载共享知识库");
         return remote;
       }
     }
-  }catch(e){ /* ignore */ }
+  }catch(e){
+    // 忽略，走本地
+  }
+
+  // 2) 回退到本地
+  const local = loadKB();
+  if (typeof showToast === "function") showToast("已加载本地知识库");
+  return local;
+}
 
   // 2) 回退到本地
   const local = loadKBFromRemoteOrLocal();
