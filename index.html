@@ -35,10 +35,10 @@
   };
   s.onerror = () => {
     if (typeof showToast === "function") showToast("地图SDK加载失败（检查网络/Key/安全密钥）");
-    alert("高德地图 SDK 加载失败：
+    alert(`高德地图 SDK 加载失败：
 1) 检查网络是否能访问 webapi.amap.com
 2) 检查 AMAP_JS_KEY 是否正确、是否绑定了域名/来源
-3) 如启用了 JS安全密钥，请填写 AMAP_SECURITY_JS_CODE");
+3) 如启用了 JS安全密钥，请填写 AMAP_SECURITY_JS_CODE`);
   };
   document.head.appendChild(s);
 })();
