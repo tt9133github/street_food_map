@@ -237,12 +237,36 @@
     /**********************
      * 3) 配置：运行时输入，避免写进仓库
      **********************/
-    const CFG_KEY = "sfm_cfg_v1";
+
+    // ✅ 给游客用的默认只读配置（写死在代码里）
+    const DEFAULT_CFG = {
+      supabaseUrl: "https://gwwiwhmryyruyxrmvjbm.supabase.co",
+      supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3d2l3aG1yeXlydXl4cm12amJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NDA1MDcsImV4cCI6MjA4NjAxNjUwN30.Nl3u335qC5MylCYLjTfTm7vOu4msvl3QjplZuVPqAg4",
+      amapKey: "02cb6240c341113e242b757c9c31f120",
+      amapSecurityJsCode: "65611fe43ded9c43124b30e1b29cb7ff"
+    };
+    
     function loadCfg(){
       try{
-        return JSON.parse(localStorage.getItem(CFG_KEY) || "{}") || {};
+        const saved = JSON.parse(localStorage.getItem(CFG_KEY) || "{}") || {};
+        // ✅ saved 覆盖 default：你在设置里填的优先生效
+        return { ...DEFAULT_CFG, ...saved };
       }catch{
-        return {};
+        return { ...DEFAULT_CFG };
+      }
+    }
+
+    
+    const CFG_KEY = "sfm_cfg_v1";
+    function loadCfg() {
+      try {
+        const savedRaw = localStorage.getItem(CFG_KEY);
+        const saved = savedRaw ? JSON.parse(savedRaw) : {};
+        // saved 覆盖 DEFAULT_CFG：你手动输入/保存的优先生效
+        return { ...DEFAULT_CFG, ...(saved && typeof saved === "object" ? saved : {}) };
+      } catch (e) {
+        // 解析失败也别让页面挂：回退到默认只读配置
+        return { ...DEFAULT_CFG };
       }
     }
     function saveCfg(patch){
