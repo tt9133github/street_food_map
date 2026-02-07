@@ -2,1153 +2,1005 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>地图知识库（分类查询 / 可编辑 / 移动端适配）</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Street Food Map (Debug)</title>
 
-  <script>
-    // 你必须填写两个不同平台的 Key：
-    // - JS API Key：用于加载 webapi.amap.com/maps
-    // - Web服务 Key：用于 restapi.amap.com/v3/geocode/geo
-    const AMAP_JS_KEY  = "02cb6240c341113e242b757c9c31f120";  // TODO: 替换成你的 JS API Key
-    const AMAP_WEB_KEY = "6beb081c646f5b3396228c8131d39025";  // TODO: 替换成你的 Web服务 Key
-    // ⚠️ 如你的高德控制台启用了「JS安全密钥」(securityJsCode)，请在此填写，否则移动端/部分网络环境可能加载失败。
-    const AMAP_SECURITY_JS_CODE = ""; // TODO: 可选：填写你的 securityJsCode
-    const DEFAULT_CITY = "成都";
-  </script>
-
-  <!-- AMap JS SDK -->
-  <script>
-    (function loadAmapSDK() {
-  const old = document.getElementById("amap-sdk");
-  if (old) old.remove();
-
-  if (typeof AMAP_SECURITY_JS_CODE === "string" && AMAP_SECURITY_JS_CODE.trim()) {
-    window._AMapSecurityConfig = { securityJsCode: AMAP_SECURITY_JS_CODE.trim() };
-  }
-
-  const s = document.createElement("script");
-  s.id = "amap-sdk";
-  s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(AMAP_JS_KEY)}&plugin=AMap.Scale,AMap.ToolBar`;
-  s.async = true;
-  s.onload = () => {
-    if (typeof showToast === "function") showToast("地图SDK已加载");
-  };
-  s.onerror = () => {
-    if (typeof showToast === "function") showToast("地图SDK加载失败（检查网络/Key/安全密钥）");
-    alert(`高德地图 SDK 加载失败：
-1) 检查网络是否能访问 webapi.amap.com
-2) 检查 AMAP_JS_KEY 是否正确、是否绑定了域名/来源
-3) 如启用了 JS安全密钥，请填写 AMAP_SECURITY_JS_CODE`);
-  };
-  document.head.appendChild(s);
-})();
-  </script>
-
-  <!-- SheetJS（Excel/CSV 解析） -->
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <!-- Leaflet (no API key) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
 
   <style>
     :root{
-      --bd:#e7e7e7;
-      --muted:#666;
-      --bg:#fafafa;
-      --card:#fff;
-      --ok:#0a7;
-      --bad:#d33;
-      --warn:#b80;
-      --shadow:0 8px 18px rgba(0,0,0,.06);
-      --r:14px;
+      --bg:#0b0f14;
+      --panel:#111824;
+      --muted:#9bb0c6;
+      --text:#e8f0ff;
+      --line:#243246;
+      --ok:#39d98a;
+      --warn:#ffcc00;
+      --err:#ff5d5d;
+      --btn:#1e2a3d;
+      --btn2:#243246;
     }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 0; color:#111; }
-    header { padding: 10px 12px; border-bottom: 1px solid var(--bd); background: var(--card); position: sticky; top: 0; z-index: 20; }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    .tabs { display:flex; gap:8px; align-items:center; }
-    .tab {
-      padding: 8px 10px; border: 1px solid #ddd; background:#fff; border-radius: 999px; cursor:pointer;
-      font-size: 13px;
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:var(--bg);
+      color:var(--text);
     }
-    .tab.active { border-color:#111; }
-    .btn { padding: 9px 11px; border: 1px solid #ddd; background: #fff; cursor: pointer; border-radius: 10px; font-size:13px; }
-    .btn.primary { border-color:#111; background:#111; color:#fff; }
-    .btn:disabled { opacity: .55; cursor: not-allowed; }
-    .inp, select {
-      padding: 9px 10px; border: 1px solid #ddd; border-radius: 10px; font-size: 13px; background:#fff;
+    header{
+      padding:10px 12px;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
     }
-    .hint { color: var(--muted); font-size: 12.5px; margin-top: 6px; line-height: 1.35; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    header .title{
+      font-weight:700;
+      letter-spacing:.2px;
+      margin-right:auto;
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    header .pill{
+      font-size:12px;
+      padding:2px 8px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      color:var(--muted);
+    }
+    .btn{
+      background:var(--btn);
+      border:1px solid var(--line);
+      color:var(--text);
+      padding:8px 10px;
+      border-radius:10px;
+      cursor:pointer;
+      font-size:14px;
+    }
+    .btn:hover{ background:var(--btn2); }
+    .btn:active{ transform: translateY(1px); }
+    .btn.danger{ border-color: rgba(255,93,93,.5); }
+    .btn.ok{ border-color: rgba(57,217,138,.5); }
+    input[type="file"]{ display:none; }
 
-    /* Layout */
-    #wrap { display: grid; grid-template-columns: 1fr 420px; height: calc(100vh - 86px); }
-    #map { width: 100%; height: 100%; }
-    #side { border-left: 1px solid var(--bd); padding: 10px; overflow: auto; background: #fff; }
-    .panel { display:none; }
-    .panel.active { display:block; }
+    .layout{
+      display:grid;
+      grid-template-columns: 1fr 380px;
+      height: calc(100vh - 58px);
+      min-height: 520px;
+    }
+    #map{
+      width:100%;
+      height:100%;
+    }
+    .side{
+      border-left:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(17,24,36,.95), rgba(17,24,36,.80));
+      display:flex;
+      flex-direction:column;
+      min-width: 320px;
+    }
+    .panel{
+      padding:10px 12px;
+      border-bottom:1px solid var(--line);
+    }
+    .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .row > * { flex: 0 0 auto; }
 
-    /* Cards */
-    .card {
-      background: var(--card); border: 1px solid #eee; border-radius: var(--r);
-      padding: 10px 10px; box-shadow: none;
+    select, input[type="text"]{
+      background:var(--btn);
+      border:1px solid var(--line);
+      color:var(--text);
+      padding:8px 10px;
+      border-radius:10px;
+      font-size:14px;
+      outline:none;
+      width: 100%;
     }
-    .cards { display:flex; flex-direction:column; gap:10px; }
-    .cardTop { display:flex; justify-content:space-between; gap:10px; }
-    .title { font-weight: 650; font-size: 14px; line-height:1.2; }
-    .sub { color: var(--muted); font-size: 12.5px; line-height:1.35; margin-top:4px; }
-    .pill {
-      display:inline-flex; align-items:center; gap:6px; padding: 3px 8px;
-      border:1px solid #eee; border-radius:999px; font-size:12px; color:#333; background:#fff;
-    }
-    .pill.ok { border-color: rgba(10,167,0,.25); color: var(--ok); }
-    .pill.warn { border-color: rgba(184,128,0,.25); color: var(--warn); }
-    .pill.bad { border-color: rgba(211,51,51,.25); color: var(--bad); }
+    .row .w50{ width: calc(50% - 4px); }
+    .row .w100{ width: 100%; }
 
-    .actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
-    .small { padding:6px 8px; border-radius:10px; font-size:12px; }
-
-    .log {
-      font-size: 12px; white-space: pre-wrap; background: var(--bg); border: 1px solid #eee;
-      border-radius: var(--r); padding: 8px;
+    .list{
+      overflow:auto;
+      padding:10px 12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .card{
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:10px;
+      background:rgba(30,42,61,.45);
+    }
+    .card h3{
+      margin:0 0 4px 0;
+      font-size:15px;
+      line-height:1.2;
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      align-items:flex-start;
+    }
+    .small{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.4;
+      word-break:break-word;
+    }
+    .tag{
+      font-size:12px;
+      padding:2px 8px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      color:var(--muted);
+      white-space:nowrap;
+    }
+    .actions{
+      margin-top:8px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
     }
 
-    /* Modal */
-    .modalMask {
-      position: fixed; inset:0; background: rgba(0,0,0,.35);
-      display:none; align-items:center; justify-content:center; z-index: 50;
-      padding: 18px;
+    .logbox{
+      border-top:1px solid var(--line);
+      padding:10px 12px;
+      height: 38%;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
     }
-    .modalMask.show { display:flex; }
-    .modal {
-      width: min(520px, 100%); background:#fff; border-radius: 18px; box-shadow: var(--shadow);
-      border: 1px solid #eee; overflow:hidden;
+    .loghead{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      justify-content:space-between;
     }
-    .modalHead { padding: 12px 14px; border-bottom: 1px solid var(--bd); display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .modalBody { padding: 12px 14px; display:flex; flex-direction:column; gap:10px; }
-    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-    .grid1 { display:grid; grid-template-columns: 1fr; gap:10px; }
-    .label { font-size: 12px; color: var(--muted); margin-bottom:4px; }
-    .field { display:flex; flex-direction:column; }
-    .modalFoot { padding: 12px 14px; border-top: 1px solid var(--bd); display:flex; justify-content:flex-end; gap:10px; }
+    .loghead .left{
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .loghead .right{
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    .logs{
+      flex:1;
+      overflow:auto;
+      background: rgba(0,0,0,.25);
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:8px;
+      font-size:12px;
+      line-height:1.4;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
 
-    /* Mobile */
-    @media (max-width: 900px) {
-      header { position: sticky; top:0; }
-      #wrap { grid-template-columns: 1fr; grid-template-rows: 55vh 45vh; height: calc(100vh - 118px); }
-      #side { border-left: 0; border-top: 1px solid var(--bd); }
-      .grid2 { grid-template-columns: 1fr; }
-      .tabs { width: 100%; justify-content:flex-start; }
+    @media (max-width: 920px){
+      .layout{ grid-template-columns: 1fr; }
+      .side{
+        height: 55vh;
+        border-left:none;
+        border-top:1px solid var(--line);
+      }
+      .logbox{ height: 42%; }
     }
-  /* Toast */
-.toast{
-  position: fixed;
-  right: 18px;
-  bottom: 18px;
-  z-index: 9999;
-  background: rgba(17,17,17,.92);
-  color: #fff;
-  padding: 10px 12px;
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  font-size: 13px;
-  max-width: min(360px, calc(100vw - 36px));
-  opacity: 0;
-  transform: translateY(10px);
-  transition: .22s ease;
-  pointer-events: none;
-}
-.toast.show{
-  opacity: 1;
-  transform: translateY(0);
-}
   </style>
 </head>
 
 <body>
 <header>
-  <div class="row" style="justify-content:space-between;">
-    <div class="tabs">
-      <button id="tabMap" class="tab active">地图 & 查询</button>
-      <button id="tabKB" class="tab">知识库</button>
-    </div>
-    <div class="row">
-      <button id="btnAdd" class="btn primary">新增条目</button>
-      <button id="btnClearCache" class="btn">清空缓存</button>
-    </div>
-  </div>
+  <div class="title">🍜 Street Food Map <span class="pill">Debug Build</span></div>
 
-  <div class="row" style="margin-top:8px;">
-    <select id="catFilter" class="inp" style="min-width:160px;"></select>
-    <input id="q" class="inp" placeholder="搜索：店名 / 地址 / 备注" style="min-width:220px; flex:1;">
-    <button id="btnApply" class="btn">应用筛选</button>
-    <span id="stat" class="hint" style="margin:0;"></span>
-  </div>
+  <label class="btn ok" for="fileImport">导入 JSON</label>
+  <input id="fileImport" type="file" accept=".json,application/json" />
 
-  <div class="hint">
-    导入字段建议：<span class="mono">店名</span>、<span class="mono">地址</span>（可选 <span class="mono">城市</span>、<span class="mono">品类</span>、<span class="mono">备注</span>）。
-    缓存：坐标缓存按 <span class="mono">城市|地址</span> 存，知识库存全部条目，可编辑。
-  </div>
+  <button class="btn" id="btnReload">重新加载 kb.json</button>
+  <button class="btn" id="btnExport">导出当前数据</button>
+  <button class="btn danger" id="btnReset">清空本地缓存</button>
 </header>
 
-<div id="wrap">
+<div class="layout">
   <div id="map"></div>
 
-  <div id="side">
-    <!-- Map panel -->
-    <div id="panelMap" class="panel active">
-      <div class="card">
-        <div class="title">导入到知识库</div>
-        <div class="sub">导入 Excel/CSV → 自动解析/编码 → 写入知识库（避免重复）。</div>
-        <div class="row" style="margin-top:10px;">
-          <input id="file" type="file" accept=".xlsx,.xls,.csv" class="inp" style="flex:1; min-width: 200px;">
-          <button id="btnImport" class="btn" disabled>导入并写入知识库</button>
-        </div>
-        <div class="row" style="margin-top:8px;">
-          <label class="sub" style="margin:0;">
-            每条间隔(ms)
-            <input id="delay" type="number" value="200" min="0" step="50" class="inp" style="width:96px; margin-left:6px;">
-          </label>
-          <label class="sub" style="margin:0;">
-            导入策略
-            <select id="importMode" class="inp" style="margin-left:6px;">
-              <option value="merge">合并（默认，补全空字段）</option>
-              <option value="overwrite">覆盖（同 key 用导入覆盖）</option>
-              <option value="addonly">仅新增（已存在则跳过）</option>
-            </select>
-          </label>
-        </div>
+  <aside class="side">
+    <div class="panel">
+      <div class="row">
+        <select id="catFilter" class="w50" title="按品类过滤"></select>
+        <input id="qFilter" class="w50" type="text" placeholder="搜索：店名/地址/城市" />
       </div>
-
-      <div style="height:10px;"></div>
-      <div class="log" id="log">初始化中…</div>
-
-      <div style="height:10px;"></div>
-      <div id="list" class="cards"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="btnFit">缩放到全部点</button>
+        <button class="btn" id="btnDiag">输出诊断摘要</button>
+      </div>
+      <div class="small" style="margin-top:8px">
+        数据源优先级：<b>localStorage</b>（有则用）→ 否则加载同目录 <b>kb.json</b>。<br/>
+        没有 <span class="mono">location{lng,lat}</span> 的条目会被跳过并记录原因。
+      </div>
     </div>
 
-    <!-- KB panel -->
-    <div id="panelKB" class="panel">
-      <div class="card">
-        <div class="title">知识库清单</div>
-        <div class="sub">这里是持久化数据源（刷新/重开仍保留）。建议在这里做品类与备注的维护。</div>
-      </div>
-      <div style="height:10px;"></div>
-      <div id="kbList" class="cards"></div>
-    </div>
-  </div>
-</div>
+    <div class="list" id="list"></div>
 
-<!-- Modal: Add/Edit -->
-<div id="mask" class="modalMask" role="dialog" aria-modal="true">
-  <div class="modal">
-    <div class="modalHead">
-      <div class="title" id="mTitle">新增条目</div>
-      <button id="mClose" class="btn small">关闭</button>
-    </div>
-    <div class="modalBody">
-      <div class="grid2">
-        <div class="field">
-          <div class="label">店名</div>
-          <input id="mName" class="inp" placeholder="例如：廖师">
+    <div class="logbox">
+      <div class="loghead">
+        <div class="left">
+          <span class="tag">Logs</span>
+          <span class="small" id="logStat">0 lines</span>
         </div>
-        <div class="field">
-          <div class="label">品类</div>
-          <input id="mCat" class="inp" placeholder="例如：面类 / 中餐 / 冒菜">
-        </div>
-      </div>
-
-      <div class="grid2">
-        <div class="field">
-          <div class="label">城市</div>
-          <input id="mCity" class="inp" placeholder="默认：成都">
-        </div>
-        <div class="field">
-          <div class="label">地址</div>
-          <input id="mAddr" class="inp" placeholder="例如：武侯区人民南路四段17号6-2-3号">
-        </div>
-      </div>
-
-      <div class="grid1">
-        <div class="field">
-          <div class="label">备注</div>
-          <input id="mNote" class="inp" placeholder="可选">
-        </div>
-      </div>
-
-      <div class="grid2">
-        <div class="field">
-          <div class="label">坐标 lng,lat（可空，保存时可自动编码）</div>
-          <input id="mLoc" class="inp" placeholder="例如：104.066800,30.572800">
-        </div>
-        <div class="field">
-          <div class="label">保存时自动编码</div>
-          <select id="mAutoGeo" class="inp">
-            <option value="yes" selected>是（无坐标则编码）</option>
-            <option value="no">否（不编码）</option>
+        <div class="right">
+          <select id="logLevel" title="日志级别">
+            <option value="debug">debug</option>
+            <option value="info" selected>info</option>
+            <option value="warn">warn</option>
+            <option value="error">error</option>
           </select>
+          <button class="btn" id="btnClearLogs">清空日志</button>
         </div>
       </div>
-
-      <div class="sub">提示：坐标缓存按 <span class="mono">城市|地址</span> 存；同店去重 key 默认用 <span class="mono">城市|地址|店名</span>。</div>
+      <div class="logs mono" id="logs"></div>
     </div>
-    <div class="modalFoot">
-      <button id="mDelete" class="btn" style="display:none;">删除</button>
-      <button id="mSave" class="btn primary">保存</button>
-    </div>
-  </div>
+  </aside>
 </div>
 
 <script>
-  // ---------- DOM ----------
-  const $ = (id) => document.getElementById(id);
+/** =========================
+ *  0) Logger: console + UI
+ *  ========================= */
+const Logger = (() => {
+  const levelRank = { debug: 10, info: 20, warn: 30, error: 40 };
+  let currentLevel = "info";
+  const lines = [];
+  const el = () => document.getElementById("logs");
+  const stat = () => document.getElementById("logStat");
 
-  const tabMap = $("tabMap");
-  const tabKB  = $("tabKB");
-  const panelMap = $("panelMap");
-  const panelKB  = $("panelKB");
-
-  const catFilter = $("catFilter");
-  const qEl = $("q");
-  const btnApply = $("btnApply");
-  const statEl = $("stat");
-
-  const fileEl = $("file");
-  const btnImport = $("btnImport");
-  const delayEl = $("delay");
-  const importModeEl = $("importMode");
-
-  const logEl = $("log");
-  const listEl = $("list");
-  const kbListEl = $("kbList");
-
-  const btnAdd = $("btnAdd");
-  const btnClearCache = $("btnClearCache");
-
-  const mask = $("mask");
-  const mTitle = $("mTitle");
-  const mClose = $("mClose");
-  const mSave = $("mSave");
-  const mDelete = $("mDelete");
-  const mName = $("mName");
-  const mCat  = $("mCat");
-  const mCity = $("mCity");
-  const mAddr = $("mAddr");
-  const mNote = $("mNote");
-  const mLoc  = $("mLoc");
-  const mAutoGeo = $("mAutoGeo");
-
-  function nowISO() { return new Date().toISOString(); }
-  function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-  function log(msg){ logEl.textContent = `[${new Date().toLocaleTimeString()}] ${msg}\n` + logEl.textContent; }
-  function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
-  function uuid(){
-    return (crypto?.randomUUID?.() ?? ("id_" + Date.now() + "_" + Math.random().toString(16).slice(2)));
+  function setLevel(lv){
+    currentLevel = lv;
+    info("logger.level", { level: lv });
+  }
+  function shouldLog(lv){
+    return levelRank[lv] >= levelRank[currentLevel];
+  }
+  function fmtTime(d){
+    const pad = n => String(n).padStart(2,"0");
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3,"0")}`;
+  }
+  function safeJson(x){
+    try { return JSON.stringify(x); }
+    catch { return String(x); }
+  }
+  function push(lv, tag, data){
+    if (!shouldLog(lv)) return;
+    const t = fmtTime(new Date());
+    const msg = data === undefined ? "" : ` ${safeJson(data)}`;
+    const line = `[${t}] ${lv.toUpperCase()} ${tag}${msg}`;
+    lines.push(line);
+    // UI
+    const box = el();
+    if (box){
+      box.textContent = lines.join("\n");
+      box.scrollTop = box.scrollHeight;
+    }
+    if (stat()){
+      stat().textContent = `${lines.length} lines`;
+    }
+    // console
+    const fn = (lv === "debug") ? console.debug :
+               (lv === "info")  ? console.info  :
+               (lv === "warn")  ? console.warn  : console.error;
+    fn(line);
+  }
+  function debug(tag, data){ push("debug", tag, data); }
+  function info(tag, data){ push("info", tag, data); }
+  function warn(tag, data){ push("warn", tag, data); }
+  function error(tag, data){ push("error", tag, data); }
+  function clear(){
+    lines.length = 0;
+    if (el()) el().textContent = "";
+    if (stat()) stat().textContent = "0 lines";
+    console.clear();
+    info("logger.cleared");
+  }
+  function snapshot(){
+    return lines.slice();
   }
 
-  // ---------- Storage ----------
-  const LS_KEYS = {
-    kb: "kb_v1",
-    addrCache: "amap_addr_cache_v1"
+  return { setLevel, debug, info, warn, error, clear, snapshot };
+})();
+
+// Global error hooks
+window.addEventListener("error", (e) => {
+  Logger.error("window.onerror", {
+    message: e.message,
+    filename: e.filename,
+    lineno: e.lineno,
+    colno: e.colno,
+    error: e.error ? String(e.error) : undefined
+  });
+});
+window.addEventListener("unhandledrejection", (e) => {
+  Logger.error("unhandledrejection", {
+    reason: e.reason ? (e.reason.stack || String(e.reason)) : "unknown"
+  });
+});
+
+// Log level UI
+document.getElementById("logLevel").addEventListener("change", (e) => {
+  Logger.setLevel(e.target.value);
+});
+
+/** =========================
+ *  1) Utilities
+ *  ========================= */
+const now = () => performance.now();
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const uid = () => (crypto?.randomUUID?.() || ("id_" + Math.random().toString(16).slice(2)));
+
+function isObject(x){ return x && typeof x === "object" && !Array.isArray(x); }
+function toNum(x){
+  const n = typeof x === "number" ? x : Number(x);
+  return Number.isFinite(n) ? n : null;
+}
+
+function validateKB(raw){
+  // 返回 {ok, value, issues[]}
+  const issues = [];
+  if (!isObject(raw)) {
+    issues.push("root 不是 object");
+    return { ok:false, value:{version:1, items:[]}, issues };
+  }
+  const version = toNum(raw.version) ?? 1;
+  const items = Array.isArray(raw.items) ? raw.items : [];
+  if (!Array.isArray(raw.items)) issues.push("root.items 不是数组，已当作空数组处理");
+
+  const norm = [];
+  for (let i=0;i<items.length;i++){
+    const it = items[i];
+    if (!isObject(it)){
+      issues.push(`items[${i}] 不是 object，已跳过`);
+      continue;
+    }
+    const id = (it.id && String(it.id).trim()) || uid();
+    const name = (it.name && String(it.name).trim()) || "";
+    const city = (it.city && String(it.city).trim()) || "";
+    const address = (it.address && String(it.address).trim()) || "";
+    const category = (it.category && String(it.category).trim()) || "未分类";
+
+    let lng = null, lat = null;
+    if (isObject(it.location)){
+      lng = toNum(it.location.lng);
+      lat = toNum(it.location.lat);
+    }
+    const hasLoc = (lng !== null && lat !== null);
+
+    norm.push({
+      id, name, city, address, category,
+      location: hasLoc ? { lng, lat } : null
+    });
+
+    if (!name) issues.push(`items[${i}] 缺 name（id=${id}）`);
+    if (!address) issues.push(`items[${i}] 缺 address（id=${id}）`);
+    if (!hasLoc) issues.push(`items[${i}] 缺 location{lng,lat}（id=${id}） -> 初始化不会画点`);
+  }
+
+  return { ok:true, value:{ version, items:norm }, issues };
+}
+
+function storageGet(key){
+  try{
+    const s = localStorage.getItem(key);
+    Logger.debug("storage.get", { key, bytes: s ? s.length : 0 });
+    return s;
+  }catch(e){
+    Logger.error("storage.get.fail", { key, error: String(e) });
+    return null;
+  }
+}
+function storageSet(key, val){
+  try{
+    localStorage.setItem(key, val);
+    Logger.debug("storage.set", { key, bytes: val.length });
+    return true;
+  }catch(e){
+    Logger.error("storage.set.fail", { key, error: String(e) });
+    return false;
+  }
+}
+function storageRemove(key){
+  try{
+    localStorage.removeItem(key);
+    Logger.debug("storage.remove", { key });
+    return true;
+  }catch(e){
+    Logger.error("storage.remove.fail", { key, error: String(e) });
+    return false;
+  }
+}
+
+async function fetchJson(url){
+  const t0 = now();
+  Logger.info("fetch.start", { url });
+  let resp;
+  try{
+    resp = await fetch(url, { cache: "no-store" });
+  }catch(e){
+    Logger.error("fetch.network_error", { url, error: String(e) });
+    throw e;
+  }
+  Logger.info("fetch.response", { url, status: resp.status, ok: resp.ok, ms: Math.round(now()-t0) });
+
+  const ct = resp.headers.get("content-type") || "";
+  Logger.debug("fetch.content_type", { url, contentType: ct });
+
+  const text = await resp.text();
+  Logger.debug("fetch.body_peek", {
+    url,
+    bytes: text.length,
+    head: text.slice(0, 120) + (text.length > 120 ? "..." : "")
+  });
+
+  // 常见：返回了 HTML（404 页面）导致 JSON parse 失败
+  if (text.trim().startsWith("<")) {
+    Logger.warn("fetch.suspect_html", { url, hint: "响应看起来像 HTML（可能是 404 或 GitHub Pages 路径问题）" });
+  }
+
+  try{
+    const json = JSON.parse(text);
+    Logger.info("fetch.json_parsed", { url, ms: Math.round(now()-t0) });
+    return json;
+  }catch(e){
+    Logger.error("fetch.json_parse_error", { url, error: String(e) });
+    throw e;
+  }
+}
+
+/** =========================
+ *  2) App State
+ *  ========================= */
+const APP = {
+  STORAGE_KEY: "street_food_map_kb_v1",
+  kb: { version: 1, items: [] },
+  map: null,
+  markers: new Map(), // id -> L.Marker
+  filter: {
+    category: "全部",
+    q: ""
+  },
+  diag: {
+    lastLoadSource: null,
+    lastLoadMs: 0,
+    lastRenderMs: 0,
+    skippedNoLocation: 0,
+    renderedMarkers: 0
+  }
+};
+
+/** =========================
+ *  3) Map init + marker ops
+ *  ========================= */
+function initMap(){
+  const t0 = now();
+  Logger.info("map.init.start");
+
+  // Default center: Chengdu
+  const center = [30.5728, 104.0668];
+  const zoom = 12;
+
+  const map = L.map("map", {
+    zoomControl: true,
+    preferCanvas: true
+  }).setView(center, zoom);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap"
+  }).addTo(map);
+
+  map.on("click", (e) => {
+    Logger.debug("map.click", { lat: e.latlng.lat, lng: e.latlng.lng });
+  });
+  map.on("load", () => Logger.debug("map.load"));
+  map.on("moveend", () => Logger.debug("map.moveend", { center: map.getCenter(), zoom: map.getZoom() }));
+
+  APP.map = map;
+  Logger.info("map.init.done", { ms: Math.round(now()-t0), center, zoom });
+}
+
+function clearMarkers(){
+  const t0 = now();
+  const n = APP.markers.size;
+  for (const [id, m] of APP.markers.entries()){
+    try { m.remove(); } catch {}
+    APP.markers.delete(id);
+  }
+  Logger.info("markers.cleared", { count: n, ms: Math.round(now()-t0) });
+}
+
+function addMarker(item){
+  if (!APP.map){
+    Logger.error("marker.add.fail_no_map", { id: item?.id });
+    return null;
+  }
+  if (!item.location){
+    Logger.warn("marker.add.skip_no_location", { id: item.id, name: item.name });
+    return null;
+  }
+
+  const { lat, lng } = item.location;
+  const marker = L.marker([lat, lng], { title: item.name || item.address || item.id });
+  marker.addTo(APP.map);
+
+  const html = `
+    <div style="min-width:220px">
+      <div style="font-weight:700;margin-bottom:4px">${escapeHtml(item.name || "(无店名)")}</div>
+      <div style="font-size:12px;color:#666;margin-bottom:6px">${escapeHtml(item.category || "")}</div>
+      <div style="font-size:12px">${escapeHtml(item.city || "")} ${escapeHtml(item.address || "")}</div>
+      <div style="font-size:12px;margin-top:6px;color:#666" class="mono">${lng}, ${lat}</div>
+    </div>
+  `;
+  marker.bindPopup(html);
+
+  marker.on("click", () => Logger.debug("marker.click", { id: item.id }));
+  APP.markers.set(item.id, marker);
+  return marker;
+}
+
+function fitAll(){
+  if (!APP.map) return;
+  const pts = [];
+  for (const it of APP.kb.items){
+    if (it.location) pts.push([it.location.lat, it.location.lng]);
+  }
+  if (!pts.length){
+    Logger.warn("map.fit.skip", { reason: "没有任何带经纬度的条目" });
+    return;
+  }
+  const bounds = L.latLngBounds(pts);
+  APP.map.fitBounds(bounds.pad(0.12));
+  Logger.info("map.fit", { points: pts.length });
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+/** =========================
+ *  4) UI: filter + list
+ *  ========================= */
+function computeCategories(items){
+  const set = new Set();
+  for (const it of items){
+    set.add((it.category || "未分类").trim() || "未分类");
+  }
+  return Array.from(set).sort((a,b)=>a.localeCompare(b,"zh"));
+}
+
+function renderCatFilter(){
+  const el = document.getElementById("catFilter");
+  const cats = computeCategories(APP.kb.items);
+  const all = ["全部", ...cats];
+
+  const old = el.value;
+  el.innerHTML = "";
+  for (const c of all){
+    const opt = document.createElement("option");
+    opt.value = c;
+    opt.textContent = c;
+    el.appendChild(opt);
+  }
+  // try keep selection
+  el.value = all.includes(old) ? old : "全部";
+  APP.filter.category = el.value;
+
+  Logger.info("ui.catFilter.rendered", { options: all.length, selected: el.value });
+}
+
+function applyFilter(items){
+  const { category, q } = APP.filter;
+  const qq = (q || "").trim().toLowerCase();
+
+  let out = items;
+  if (category && category !== "全部"){
+    out = out.filter(it => (it.category || "未分类") === category);
+  }
+  if (qq){
+    out = out.filter(it => {
+      const blob = `${it.name||""} ${it.city||""} ${it.address||""} ${it.category||""}`.toLowerCase();
+      return blob.includes(qq);
+    });
+  }
+  return out;
+}
+
+function renderList(items){
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  if (!items.length){
+    const empty = document.createElement("div");
+    empty.className = "card";
+    empty.innerHTML = `<div class="small">没有匹配结果。可尝试清空筛选，或检查是否有经纬度 location。</div>`;
+    list.appendChild(empty);
+    return;
+  }
+
+  for (const it of items){
+    const card = document.createElement("div");
+    card.className = "card";
+
+    const loc = it.location ? `${it.location.lng}, ${it.location.lat}` : "无经纬度（不会在地图显示）";
+    card.innerHTML = `
+      <h3>
+        <span>${escapeHtml(it.name || "(无店名)")}</span>
+        <span class="tag">${escapeHtml(it.category || "未分类")}</span>
+      </h3>
+      <div class="small">${escapeHtml(it.city || "")} ${escapeHtml(it.address || "")}</div>
+      <div class="small mono" style="margin-top:6px">${escapeHtml(loc)}</div>
+      <div class="actions">
+        <button class="btn" data-act="locate" data-id="${escapeHtml(it.id)}">定位</button>
+        <button class="btn" data-act="edit" data-id="${escapeHtml(it.id)}">编辑</button>
+      </div>
+    `;
+    list.appendChild(card);
+  }
+
+  list.querySelectorAll("button[data-act]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-id");
+      const act = btn.getAttribute("data-act");
+      if (act === "locate") locateItem(id);
+      if (act === "edit") editItem(id);
+    });
+  });
+}
+
+function locateItem(id){
+  const it = APP.kb.items.find(x => x.id === id);
+  if (!it){
+    Logger.warn("ui.locate.not_found", { id });
+    return;
+  }
+  if (!it.location){
+    Logger.warn("ui.locate.no_location", { id, name: it.name });
+    return;
+  }
+  const { lat, lng } = it.location;
+  APP.map.setView([lat, lng], Math.max(APP.map.getZoom(), 16), { animate: true });
+  const mk = APP.markers.get(id);
+  if (mk) mk.openPopup();
+  Logger.info("ui.locate", { id, lat, lng });
+}
+
+function editItem(id){
+  const it = APP.kb.items.find(x => x.id === id);
+  if (!it){
+    Logger.warn("ui.edit.not_found", { id });
+    return;
+  }
+
+  const name = prompt("店名", it.name || "");
+  if (name === null) return;
+
+  const category = prompt("品类", it.category || "未分类");
+  if (category === null) return;
+
+  const city = prompt("城市", it.city || "");
+  if (city === null) return;
+
+  const address = prompt("地址", it.address || "");
+  if (address === null) return;
+
+  let lng = it.location?.lng ?? "";
+  let lat = it.location?.lat ?? "";
+  const lngStr = prompt("经度 lng（留空=无经纬度）", lng);
+  if (lngStr === null) return;
+  const latStr = prompt("纬度 lat（留空=无经纬度）", lat);
+  if (latStr === null) return;
+
+  const nlng = lngStr.trim() ? toNum(lngStr.trim()) : null;
+  const nlat = latStr.trim() ? toNum(latStr.trim()) : null;
+  if ((lngStr.trim() && nlng === null) || (latStr.trim() && nlat === null)){
+    Logger.warn("ui.edit.invalid_location", { id, lngStr, latStr });
+    alert("经纬度格式不正确（必须是数字）。已取消保存。");
+    return;
+  }
+
+  it.name = name.trim();
+  it.category = category.trim() || "未分类";
+  it.city = city.trim();
+  it.address = address.trim();
+  it.location = (nlng !== null && nlat !== null) ? { lng: nlng, lat: nlat } : null;
+
+  persistKB("editItem");
+  renderAll("editItem");
+
+  Logger.info("ui.edit.saved", { id, hasLocation: !!it.location });
+}
+
+/** =========================
+ *  5) Core render pipeline
+ *  ========================= */
+function renderAll(reason){
+  const t0 = now();
+  Logger.info("renderAll.start", {
+    reason,
+    totalItems: APP.kb.items.length,
+    filter: APP.filter
+  });
+
+  // 1) build filtered
+  const filtered = applyFilter(APP.kb.items);
+
+  // 2) markers
+  clearMarkers();
+  let rendered = 0;
+  let skippedNoLoc = 0;
+
+  for (const it of filtered){
+    if (!it.location){
+      skippedNoLoc++;
+      Logger.debug("render.skip_no_location", { id: it.id, name: it.name, address: it.address });
+      continue;
+    }
+    try{
+      const m = addMarker(it);
+      if (m) rendered++;
+    }catch(e){
+      Logger.error("render.marker_error", { id: it.id, error: String(e) });
+    }
+  }
+
+  // 3) list
+  renderList(filtered);
+
+  APP.diag.lastRenderMs = Math.round(now()-t0);
+  APP.diag.skippedNoLocation = skippedNoLoc;
+  APP.diag.renderedMarkers = rendered;
+
+  Logger.info("renderAll.done", {
+    ms: APP.diag.lastRenderMs,
+    filtered: filtered.length,
+    renderedMarkers: rendered,
+    skippedNoLocation: skippedNoLoc
+  });
+}
+
+/** =========================
+ *  6) Data load / persist
+ *  ========================= */
+function persistKB(reason){
+  const t0 = now();
+  const text = JSON.stringify(APP.kb, null, 2);
+  const ok = storageSet(APP.STORAGE_KEY, text);
+  Logger.info("kb.persist", { ok, reason, ms: Math.round(now()-t0), items: APP.kb.items.length });
+}
+
+function loadFromStorage(){
+  const t0 = now();
+  const s = storageGet(APP.STORAGE_KEY);
+  if (!s){
+    Logger.info("kb.storage.miss");
+    return null;
+  }
+  try{
+    const raw = JSON.parse(s);
+    const v = validateKB(raw);
+    Logger.info("kb.storage.parsed", { ok: v.ok, issues: v.issues.length, ms: Math.round(now()-t0) });
+    if (v.issues.length) Logger.warn("kb.storage.issues", { issues: v.issues.slice(0, 12) });
+    return v.value;
+  }catch(e){
+    Logger.error("kb.storage.parse_fail", { error: String(e) });
+    return null;
+  }
+}
+
+async function loadFromKbJson(){
+  const t0 = now();
+  const raw = await fetchJson("./kb.json"); // 同目录
+  const v = validateKB(raw);
+  Logger.info("kb.kbjson.validated", { ok: v.ok, issues: v.issues.length, ms: Math.round(now()-t0) });
+  if (v.issues.length) Logger.warn("kb.kbjson.issues", { issues: v.issues.slice(0, 12) });
+  return v.value;
+}
+
+async function loadKB(){
+  const t0 = now();
+  Logger.info("kb.load.start");
+
+  // 1) storage first
+  const fromStore = loadFromStorage();
+  if (fromStore){
+    APP.kb = fromStore;
+    APP.diag.lastLoadSource = "localStorage";
+    APP.diag.lastLoadMs = Math.round(now()-t0);
+    Logger.info("kb.load.done", { source: "localStorage", ms: APP.diag.lastLoadMs, items: APP.kb.items.length });
+    return;
+  }
+
+  // 2) fetch kb.json
+  try{
+    const fromFile = await loadFromKbJson();
+    APP.kb = fromFile;
+    APP.diag.lastLoadSource = "kb.json";
+    APP.diag.lastLoadMs = Math.round(now()-t0);
+    Logger.info("kb.load.done", { source: "kb.json", ms: APP.diag.lastLoadMs, items: APP.kb.items.length });
+  }catch(e){
+    APP.kb = { version: 1, items: [] };
+    APP.diag.lastLoadSource = "failed";
+    APP.diag.lastLoadMs = Math.round(now()-t0);
+    Logger.error("kb.load.fail", { ms: APP.diag.lastLoadMs, error: String(e) });
+  }
+}
+
+/** =========================
+ *  7) Import / Export
+ *  ========================= */
+document.getElementById("fileImport").addEventListener("change", async (e) => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+
+  Logger.info("import.start", { name: f.name, size: f.size, type: f.type });
+
+  let text;
+  try{
+    text = await f.text();
+    Logger.debug("import.text_peek", { head: text.slice(0, 120) + (text.length>120?"...":"") });
+  }catch(err){
+    Logger.error("import.read_fail", { error: String(err) });
+    alert("读取文件失败。");
+    return;
+  }
+
+  let raw;
+  try{
+    raw = JSON.parse(text);
+  }catch(err){
+    Logger.error("import.json_parse_fail", { error: String(err) });
+    alert("JSON 解析失败，请检查文件内容。");
+    return;
+  }
+
+  const v = validateKB(raw);
+  Logger.info("import.validated", { ok: v.ok, issues: v.issues.length });
+  if (v.issues.length) Logger.warn("import.issues", { issues: v.issues.slice(0, 20) });
+
+  APP.kb = v.value;
+  persistKB("import");
+  renderCatFilter();
+  renderAll("import");
+  fitAll();
+});
+
+document.getElementById("btnExport").addEventListener("click", () => {
+  const t0 = now();
+  const text = JSON.stringify(APP.kb, null, 2);
+  const blob = new Blob([text], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "kb_export.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  Logger.info("export.done", { bytes: text.length, ms: Math.round(now()-t0) });
+});
+
+document.getElementById("btnReset").addEventListener("click", () => {
+  if (!confirm("确认清空本地缓存（localStorage）？清空后将重新从 kb.json 加载。")) return;
+  storageRemove(APP.STORAGE_KEY);
+  Logger.warn("storage.reset");
+  location.reload();
+});
+
+document.getElementById("btnReload").addEventListener("click", async () => {
+  Logger.info("reload.clicked");
+  await loadKB();
+  renderCatFilter();
+  renderAll("reload");
+  fitAll();
+});
+
+document.getElementById("btnFit").addEventListener("click", fitAll);
+
+document.getElementById("btnClearLogs").addEventListener("click", () => Logger.clear());
+
+document.getElementById("catFilter").addEventListener("change", (e) => {
+  APP.filter.category = e.target.value;
+  Logger.info("filter.category", { value: APP.filter.category });
+  renderAll("filter.category");
+});
+
+document.getElementById("qFilter").addEventListener("input", (e) => {
+  APP.filter.q = e.target.value;
+  Logger.debug("filter.q", { value: APP.filter.q });
+  renderAll("filter.q");
+});
+
+document.getElementById("btnDiag").addEventListener("click", () => {
+  const diag = {
+    time: new Date().toISOString(),
+    page: location.href,
+    protocol: location.protocol,
+    lastLoadSource: APP.diag.lastLoadSource,
+    lastLoadMs: APP.diag.lastLoadMs,
+    lastRenderMs: APP.diag.lastRenderMs,
+    totalItems: APP.kb.items.length,
+    renderedMarkers: APP.diag.renderedMarkers,
+    skippedNoLocation: APP.diag.skippedNoLocation,
+    filter: APP.filter
   };
+  Logger.info("diag.summary", diag);
 
-  function safeJsonParse(s, fallback){
-    try { return JSON.parse(s); } catch { return fallback; }
+  // 额外：提示最常见问题
+  const hints = [];
+  if (location.protocol === "file:") {
+    hints.push("你是用 file:// 打开的，fetch(kb.json) 在很多浏览器会失败。请用本地静态服务器。");
   }
-
-  function loadKB(){
-    const v = safeJsonParse(localStorage.getItem(LS_KEYS.kb), null);
-    if (!v || typeof v !== "object") return { version: 1, items: [] };
-    if (!Array.isArray(v.items)) v.items = [];
-    if (!v.version) v.version = 1;
-    return v;
+  if (APP.kb.items.length && APP.diag.renderedMarkers === 0) {
+    hints.push("数据有条目但渲染 0 个 marker：通常是 items 全部缺 location{lng,lat}，或被筛选条件过滤掉。请看日志中的 render.skip_no_location / filter。");
   }
-
-
-// 共享知识库：GitHub Pages 同目录下的 kb.json（所有访问者都能看到同一份默认数据）
-// - 成功加载后会写入 localStorage，作为本地缓存
-// - 如果 kb.json 不存在/加载失败，则回退到本地 localStorage
-async function loadKBFromRemoteOrLocal(){
-  // 1) 远程 kb.json
-  try{
-    const r = await fetch("./kb.json", { cache: "no-store" });
-    if (r.ok) {
-      const remote = await r.json();
-      if (remote && typeof remote === "object" && Array.isArray(remote.items)) {
-        if (!remote.version) remote.version = 1;
-        saveKB(remote);
-        if (typeof showToast === "function") showToast("已加载共享知识库");
-        return remote;
-      }
-    }
-  }catch(e){ /* ignore */ }
-
-  // 2) 回退到本地
-  const local = loadKB();
-  if (typeof showToast === "function") showToast("已加载本地知识库");
-  return local;
-}
-  function saveKB(kb){
-    localStorage.setItem(LS_KEYS.kb, JSON.stringify(kb));
+  if (!APP.kb.items.length) {
+    hints.push("当前 items=0：可能 kb.json 没加载到（404/路径问题），或 localStorage 里是空数据。看 fetch.* 日志即可定位。");
   }
-
-  function loadAddrCache(){
-    const v = safeJsonParse(localStorage.getItem(LS_KEYS.addrCache), {});
-    if (!v || typeof v !== "object" || Array.isArray(v)) return {};
-    return v;
-  }
-
-  function saveAddrCache(obj){
-    localStorage.setItem(LS_KEYS.addrCache, JSON.stringify(obj || {}));
-  }
-
-  function clearAllCache(){
-    // 知识库也清：满足“清空缓存”一键重来
-    localStorage.removeItem(LS_KEYS.kb);
-    localStorage.removeItem(LS_KEYS.addrCache);
-  }
-
-  function addrKey(city, address){
-    return `${(city||"").trim()}|${(address||"").trim()}`;
-  }
-  function itemKey(item){
-    return `${(item.city||"").trim()}|${(item.address||"").trim()}|${(item.name||"").trim()}`;
-  }
-
-  // ---------- AMap ----------
-  let map, infoWin;
-  let markers = []; // {id, marker}
-  let mapReady = false;
-
-  
-
-function retryLoadAmap(){
-  try{
-    const old = document.getElementById("amap-sdk");
-    if (old) old.remove();
-    if (typeof AMAP_SECURITY_JS_CODE === "string" && AMAP_SECURITY_JS_CODE.trim()) {
-      window._AMapSecurityConfig = { securityJsCode: AMAP_SECURITY_JS_CODE.trim() };
-    }
-    const s = document.createElement("script");
-    s.id = "amap-sdk";
-    s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(AMAP_JS_KEY)}&plugin=AMap.Scale,AMap.ToolBar`;
-    s.async = true;
-    s.onload = () => { if (typeof showToast==="function") showToast("地图SDK已重新加载"); };
-    s.onerror = () => { if (typeof showToast==="function") showToast("地图SDK重试失败"); };
-    document.head.appendChild(s);
-  } catch(e){
-    console.error(e);
-  }
-}
-function waitAmapReady(){
-    return new Promise((resolve, reject) => {
-      const t0 = Date.now();
-      const timer = setInterval(() => {
-        if (window.AMap && typeof window.AMap.Map === "function") {
-          clearInterval(timer); resolve();
-        } else if (Date.now() - t0 > 45000) {
-          clearInterval(timer); reject(new Error("AMap 加载超时（45s）。请检查：网络是否可访问 webapi.amap.com；AMAP_JS_KEY 是否允许当前来源；如启用 JS安全密钥请填写 AMAP_SECURITY_JS_CODE。"));
-        }
-      }, 100);
-    });
-  }
-
-  async function initMap(){
-const st = logEl; // 右侧日志块兼作状态显示
-try {
-
-    if (!AMAP_JS_KEY || AMAP_JS_KEY.includes("填")) throw new Error("请填写 AMAP_JS_KEY（JS API Key）");
-    if (!AMAP_WEB_KEY || AMAP_WEB_KEY.includes("填")) throw new Error("请填写 AMAP_WEB_KEY（Web服务 Key）");
-
-    await waitAmapReady();
-
-    map = new AMap.Map("map", { zoom: 12, center: [104.0668, 30.5728] });
-    map.addControl(new AMap.Scale());
-    map.addControl(new AMap.ToolBar());
-    infoWin = new AMap.InfoWindow({ offset: new AMap.Pixel(0, -28) });
-
-    mapReady = true;
-    btnImport.disabled = false;
-
-    log("地图初始化完成。数据源：知识库。");
-
-    showToast("地图初始化完成");
-// 初始化完成提示（右下角 toast）
-  // 把“初始化中…”状态收敛一下（日志仍保留）
-  // 这里不清空日志，只保证用户看到完成提示即可
-} catch (err) {
-  console.error(err);
-  log("地图初始化失败：" + (err?.message || String(err)));
-  showToast("地图初始化失败");
-  alert("地图初始化失败：\n" + (err?.message || String(err)) + "\n\n你可以：\n- 确保使用 https 打开页面（不要用 file://）\n- 确认 AMAP_JS_KEY 允许当前来源（域名/端口/本机IP）\n- 如启用了 JS安全密钥，填写 AMAP_SECURITY_JS_CODE\n- 然后将自动尝试重试加载 SDK");
-            try{ retryLoadAmap(); }catch(e){}
-  throw err;
-}
-
-
-  }
-
-  function clearMarkers(){
-    if (!mapReady) return;
-    const ms = markers.map(x => x.marker);
-    if (ms.length) map.remove(ms);
-    markers = [];
-  }
-
-  function makeMarkerIcon(){
-    const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 48 48">
-        <path fill="#111" d="M24 2c-8.3 0-15 6.7-15 15 0 10.5 12.6 27.5 14 29.3.5.6 1.5.6 2 0C26.4 44.5 39 27.5 39 17 39 8.7 32.3 2 24 2z"/>
-        <circle cx="24" cy="17" r="6.5" fill="#FFFFFF"/>
-      </svg>
-    `.trim();
-    const iconUrl = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
-    return new AMap.Icon({
-      size: new AMap.Size(36, 36),
-      image: iconUrl,
-      imageSize: new AMap.Size(36, 36)
-    });
-  }
-  const defaultIcon = () => makeMarkerIcon();
-
-  function addMarkerForItem(item){
-    if (!item.location?.lng || !item.location?.lat) return null;
-    const marker = new AMap.Marker({
-      position: [Number(item.location.lng), Number(item.location.lat)],
-      icon: defaultIcon(),
-      title: item.name || item.address,
-      anchor: "bottom-center"
-    });
-    marker.setMap(map);
-    marker.on("click", () => {
-      const html = `
-        <div style="font-size:13px;line-height:1.5;">
-          <div style="font-weight:650;margin-bottom:4px;">${esc(item.name || "未命名")}</div>
-          <div>品类：${esc(item.category || "未分类")}</div>
-          <div>地址：${esc((item.city ? item.city + " " : "") + (item.address || ""))}</div>
-          <div style="color:#666;">坐标：${Number(item.location.lng).toFixed(6)}, ${Number(item.location.lat).toFixed(6)}</div>
-          ${item.note ? `<div style="margin-top:4px;color:#666;">备注：${esc(item.note)}</div>` : ""}
-        </div>`;
-      infoWin.setContent(html);
-      infoWin.open(map, [Number(item.location.lng), Number(item.location.lat)]);
-          jumpToKB(item.id);
-    });
-    markers.push({ id: item.id, marker });
-    return marker;
-  }
-
-  // ---------- Geocode ----------
-  async function geocodeOne(fullAddress, cityHint){
-    const start = performance.now();
-    const url =
-      `https://restapi.amap.com/v3/geocode/geo` +
-      `?key=${encodeURIComponent(AMAP_WEB_KEY)}` +
-      `&address=${encodeURIComponent(fullAddress)}` +
-      (cityHint ? `&city=${encodeURIComponent(cityHint)}` : "");
-
-    try {
-      const resp = await fetch(url);
-      const json = await resp.json();
-      const cost = Math.round(performance.now() - start);
-
-      if (json.status === "1" && json.geocodes?.length) {
-        const loc = String(json.geocodes[0].location);
-        const [lng, lat] = loc.split(",").map(Number);
-        return { ok: true, location: { lng, lat }, cost };
-      }
-      return { ok: false, error: `${json.info || "FAIL"}(${json.infocode || "-"})`, cost };
-    } catch (e) {
-      const cost = Math.round(performance.now() - start);
-      return { ok: false, error: "FETCH_EXCEPTION", cost };
-    }
-  }
-
-  // ---------- Import: Excel/CSV ----------
-  function normalizeHeader(h){
-    return String(h ?? "").trim().toLowerCase()
-      .replace(/\s+/g, "")
-      .replace(/（/g, "(").replace(/）/g, ")");
-  }
-
-  function buildColMap(headers){
-    const map = {};
-    for (const h of headers) {
-      const nh = normalizeHeader(h);
-
-      // 中文
-      if (["店名","名称","商户","餐馆","门店","门店名称"].includes(h)) map.name = h;
-      if (["地址","详细地址","地点","位置","门店地址"].includes(h)) map.address = h;
-      if (["城市","市"].includes(h)) map.city = h;
-      if (["品类","分类","类型"].includes(h)) map.category = h;
-      if (["备注","说明","note"].includes(nh) || ["备注","说明"].includes(h)) map.note = h;
-
-      // 英文
-      if (["name","poi","title","shopname","storename"].includes(nh)) map.name = h;
-      if (["address","addr","location","detailaddress"].includes(nh)) map.address = h;
-      if (["city"].includes(nh)) map.city = h;
-      if (["category","type","kind","class"].includes(nh)) map.category = h;
-      if (["note","remark","comments","comment"].includes(nh)) map.note = h;
-    }
-    return map;
-  }
-
-  function pick(row, key){
-    const v = row?.[key];
-    return v == null ? "" : String(v).trim();
-  }
-
-  function readFileToItems(file){
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(new Error("文件读取失败"));
-
-      reader.onload = (e) => {
-        try {
-          const data = new Uint8Array(e.target.result);
-          const wb = XLSX.read(data, { type: "array" });
-          const ws = wb.Sheets[wb.SheetNames[0]];
-          const json = XLSX.utils.sheet_to_json(ws, { defval: "" });
-
-          if (!json.length) return reject(new Error("表格为空或无法解析"));
-
-          const headers = Object.keys(json[0]);
-          const colMap = buildColMap(headers);
-
-          if (!colMap.address) return reject(new Error("找不到表头「地址」/「address」"));
-          // 店名可以为空（有些条目只有地址也能用）
-          const items = json.map((r) => {
-            const city = colMap.city ? pick(r, colMap.city) : "";
-            const name = colMap.name ? pick(r, colMap.name) : "";
-            const address = pick(r, colMap.address);
-            const category = colMap.category ? pick(r, colMap.category) : "";
-            const note = colMap.note ? pick(r, colMap.note) : "";
-
-            return {
-              id: uuid(),
-              name,
-              address,
-              city,
-              category,
-              note,
-              location: null,
-              createdAt: nowISO(),
-              updatedAt: nowISO()
-            };
-          }).filter(x => x.name || x.address);
-
-          resolve(items);
-        } catch (err) {
-          reject(err);
-        }
-      };
-      reader.readAsArrayBuffer(file);
-    });
-  }
-
-  // ---------- KB CRUD ----------
-  let kb = { version: 1, items: [] }; // 将在启动时加载共享/本地知识库
-  let editingId = null;
-
-  function upsertItem(item, mode){
-    // mode: merge | overwrite | addonly
-    const key = itemKey(item);
-    const idx = kb.items.findIndex(x => itemKey(x) === key);
-
-    if (idx === -1) {
-      kb.items.unshift(item);
-      return { action: "added", item };
-    }
-
-    if (mode === "addonly") {
-      return { action: "skipped", item: kb.items[idx] };
-    }
-
-    if (mode === "overwrite") {
-      const old = kb.items[idx];
-      kb.items[idx] = {
-        ...old,
-        ...item,
-        id: old.id,              // 保留旧 id
-        createdAt: old.createdAt,
-        updatedAt: nowISO()
-      };
-      return { action: "overwritten", item: kb.items[idx] };
-    }
-
-    // merge：只补空字段 / location 优先保留已有（除非已有为空）
-    const old = kb.items[idx];
-    const merged = { ...old };
-    for (const k of ["name","address","city","category","note"]) {
-      if (!merged[k] && item[k]) merged[k] = item[k];
-    }
-    if ((!merged.location || merged.location.lng == null || merged.location.lat == null) && item.location) {
-      merged.location = item.location;
-    }
-    merged.updatedAt = nowISO();
-    kb.items[idx] = merged;
-    return { action: "merged", item: merged };
-  }
-
-  function deleteItem(id){
-    kb.items = kb.items.filter(x => x.id !== id);
-  }
-
-  function getCategories(){
-    const set = new Set();
-    for (const it of kb.items) {
-      const c = (it.category || "").trim() || "未分类";
-      set.add(c);
-    }
-    return Array.from(set).sort((a,b) => a.localeCompare(b, "zh-Hans-CN"));
-  }
-
-  // ---------- Filtering + Rendering ----------
-  function getFilterState(){
-    const cat = (catFilter.value || "ALL");
-    const q = (qEl.value || "").trim().toLowerCase();
-    return { cat, q };
-  }
-
-  function matches(it, f){
-    const cat = (it.category || "").trim() || "未分类";
-    if (f.cat !== "ALL" && cat !== f.cat) return false;
-    if (!f.q) return true;
-    const hay = `${it.name||""} ${it.address||""} ${it.city||""} ${it.category||""} ${it.note||""}`.toLowerCase();
-    return hay.includes(f.q);
-  }
-
-  function filteredItems(){
-    const f = getFilterState();
-    return kb.items.filter(it => matches(it, f));
-  }
-
-  function renderCatFilter(){
-    const cats = getCategories();
-    const f = getFilterState();
-    const options = [`<option value="ALL">全部品类</option>`]
-      .concat(cats.map(c => {
-        const count = kb.items.filter(x => ((x.category||"").trim()||"未分类") === c).length;
-        const sel = (f.cat === c) ? "selected" : "";
-        return `<option value="${esc(c)}" ${sel}>${esc(c)} (${count})</option>`;
-      }));
-    catFilter.innerHTML = options.join("");
-  }
-
-  function pillForItem(it){
-    if (it.location?.lng != null && it.location?.lat != null) return `<span class="pill ok">已定位</span>`;
-    if (it.address) return `<span class="pill warn">无坐标</span>`;
-    return `<span class="pill bad">缺地址</span>`;
-  }
-
-  
-
-function highlightAndScroll(containerEl, selector){
-  const el = containerEl.querySelector(selector);
-  if (!el) return false;
-  el.scrollIntoView({ behavior: "smooth", block: "center" });
-  el.classList.add("highlight");
-  setTimeout(() => el.classList.remove("highlight"), 1200);
-  return true;
-}
-
-function jumpToKB(id){
-  setTab("kb");
-  // 等待 DOM 切换后再滚动
-  setTimeout(() => {
-    highlightAndScroll(kbListEl, `[data-item-id="${id}"]`);
-  }, 50);
-}
-
-async function relocalizeItem(id){
-  const it = kb.items.find(x => x.id === id);
-  if (!it) return;
-  if (!it.address) return alert("该条目缺少地址，无法重新定位。");
-  if (!mapReady) return alert("地图未就绪，稍后再试。");
-
-  it.city = (it.city || DEFAULT_CITY).trim() || DEFAULT_CITY;
-
-  const cache = loadAddrCache();
-  const k = addrKey(it.city, it.address);
-
-  log(`重新定位：编码中 ${it.city}${it.address} ...`);
-  const res = await geocodeOne(`${it.city}${it.address}`.trim(), it.city);
-  if (res.ok) {
-    it.location = res.location;
-    it.updatedAt = nowISO();
-    cache[k] = { lng: res.location.lng, lat: res.location.lat, ts: Date.now() };
-    saveAddrCache(cache);
-    saveKB(kb);
-    renderAll();
-    focusItemOnMap(id);
-    log(`重新定位：成功 ${res.location.lng},${res.location.lat}（${res.cost}ms）`);
-    showToast("已定位并保存");
-} else {
-    log(`重新定位：失败 ${res.error}`);
-    alert("重新定位失败：" + res.error);
-  }
-}
-
-  function renderCards(targetEl, items, mode){
-    // mode: "mapList" | "kbList"
-    targetEl.innerHTML = items.map(it => {
-      const cat = (it.category || "").trim() || "未分类";
-      const addr = `${it.city ? it.city + " " : ""}${it.address || ""}`.trim();
-      const loc = (it.location?.lng != null && it.location?.lat != null)
-        ? `${Number(it.location.lng).toFixed(6)},${Number(it.location.lat).toFixed(6)}`
-        : "";
-
-      return `
-        <div class=\"card\" data-item-id=\"${esc(it.id)}\">
-          <div class="cardTop">
-            <div>
-              <div class="title">${esc(it.name || "（未命名）")}</div>
-              <div class="sub">${esc(addr || "（无地址）")}</div>
-              <div class="sub" style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                <span class="pill">${esc(cat)}</span>
-                ${pillForItem(it)}
-                ${loc ? `<span class="pill">${esc(loc)}</span>` : ""}
-              </div>
-              ${it.note ? `<div class="sub" style="margin-top:6px;">备注：${esc(it.note)}</div>` : ""}
-            </div>
-            <div class="actions">
-              <button class="btn small" data-act="edit" data-id="${esc(it.id)}">编辑</button>
-              <button class="btn small" data-act="regeo" data-id="${esc(it.id)}">重新定位</button>
-               ${mode === "mapList" ? `<button class="btn small" data-act="focus" data-id="${esc(it.id)}">定位</button>` : ""}
-            </div>
-          </div>
-        </div>
-      `;
-    }).join("");
-
-    // bind actions
-    targetEl.querySelectorAll("button[data-act]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const act = btn.getAttribute("data-act");
-        const id = btn.getAttribute("data-id");
-        if (act === "edit") openModalEdit(id);
-        if (act === "focus") focusItemOnMap(id);
-        if (act === "regeo") relocalizeItem(id);
-      });
-    });
-  }
-
-  function focusItemOnMap(id){
-    const it = kb.items.find(x => x.id === id);
-    if (!it?.location) {
-      alert("该条目无坐标。你可以编辑后选择“保存时自动编码”。");
-      return;
-    }
-    const pos = [Number(it.location.lng), Number(it.location.lat)];
-    map.setZoomAndCenter(16, pos);
-    infoWin.close();
-    // 打开 infoWin
-    const html = `
-      <div style="font-size:13px;line-height:1.5;">
-        <div style="font-weight:650;margin-bottom:4px;">${esc(it.name || "未命名")}</div>
-        <div>品类：${esc(it.category || "未分类")}</div>
-        <div>地址：${esc((it.city ? it.city + " " : "") + (it.address || ""))}</div>
-        <div style="color:#666;">坐标：${Number(it.location.lng).toFixed(6)}, ${Number(it.location.lat).toFixed(6)}</div>
-      </div>`;
-    infoWin.setContent(html);
-    infoWin.open(map, pos);
-  }
-
-  function renderAll(){
-    renderCatFilter();
-
-    const items = filteredItems();
-    const total = kb.items.length;
-    statEl.textContent = `命中 ${items.length} / 共 ${total} 条`;
-
-    // right side list (map panel)
-    renderCards(listEl, items.slice(0, 2000), "mapList");
-    // kb panel list
-    renderCards(kbListEl, kb.items.slice(0, 5000), "kbList");
-
-    // map markers
-    if (mapReady) {
-      clearMarkers();
-      const ms = [];
-      for (const it of items) {
-        const m = addMarkerForItem(it);
-        if (m) ms.push(m);
-      }
-      // 视野不自动 fitView：保持成都市区初始化视野，避免被外地点位拉走
-      // 如需定位请使用「定位」按钮或点击 marker
-}
-
-    saveKB(kb);
-  }
-
-  // ---------- Modal ----------
-  function openModalAdd(){
-    editingId = null;
-    mTitle.textContent = "新增条目";
-    mDelete.style.display = "none";
-    mName.value = "";
-    mCat.value = "";
-    mCity.value = DEFAULT_CITY;
-    mAddr.value = "";
-    mNote.value = "";
-    mLoc.value = "";
-    mAutoGeo.value = "yes";
-    mask.classList.add("show");
-  }
-
-  function openModalEdit(id){
-    const it = kb.items.find(x => x.id === id);
-    if (!it) return;
-    editingId = id;
-    mTitle.textContent = "编辑条目";
-    mDelete.style.display = "";
-    mName.value = it.name || "";
-    mCat.value = it.category || "";
-    mCity.value = it.city || DEFAULT_CITY;
-    mAddr.value = it.address || "";
-    mNote.value = it.note || "";
-    mLoc.value = it.location ? `${it.location.lng ?? ""},${it.location.lat ?? ""}` : "";
-    mAutoGeo.value = "yes";
-    mask.classList.add("show");
-  }
-
-  function closeModal(){
-    mask.classList.remove("show");
-  }
-
-  function parseLoc(s){
-    const t = String(s || "").trim();
-    if (!t) return null;
-    const parts = t.split(",").map(x => x.trim());
-    if (parts.length !== 2) return null;
-    const lng = Number(parts[0]);
-    const lat = Number(parts[1]);
-    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
-    return { lng, lat };
-  }
-
-  async function saveFromModal(){
-    const name = (mName.value || "").trim();
-    const category = (mCat.value || "").trim();
-    const city = (mCity.value || DEFAULT_CITY).trim() || DEFAULT_CITY;
-    const address = (mAddr.value || "").trim();
-    const note = (mNote.value || "").trim();
-    const loc = parseLoc(mLoc.value);
-
-    const prev = editingId ? kb.items.find(x => x.id === editingId) : null;
-    const prevCity = (prev?.city || DEFAULT_CITY).trim() || DEFAULT_CITY;
-    const prevAddr = (prev?.address || "").trim();
-
-
-    if (!address) {
-      alert("地址必填（至少用于定位与去重）。");
-      return;
-    }
-
-    const isNew = !editingId;
-    const id = editingId || uuid();
-
-    let item = kb.items.find(x => x.id === id) || {
-      id,
-      createdAt: nowISO()
-    };
-
-    item = {
-      ...item,
-      name,
-      category,
-      city,
-      address,
-      note,
-      location: loc || item.location || null,
-      updatedAt: nowISO()
-    };
-
-    const changedAddr = !!prev && ((prevCity !== item.city) || (prevAddr !== item.address));
-    // 如果编辑时改了城市/地址：除非你手工填了坐标，否则视为需要重新编码
-    if (changedAddr && !loc) {
-      item.location = null;
-    }
-
-    // 保存时自动编码（无坐标则编码 + 写缓存）
-    if (mAutoGeo.value === "yes" && (!item.location || item.location.lng == null || item.location.lat == null)) {
-      if (!mapReady) {
-        alert("地图未就绪，稍后再试。");
-        return;
-      }
-      const cache = loadAddrCache();
-      const k = addrKey(item.city, item.address);
-      const hit = cache?.[k];
-      if (hit?.lng != null && hit?.lat != null) {
-        item.location = { lng: Number(hit.lng), lat: Number(hit.lat) };
-        log(`保存条目：坐标缓存命中 ${k}`);
-      } else {
-        log(`保存条目：编码中 ${item.city}${item.address} ...`);
-        const res = await geocodeOne(`${item.city}${item.address}`.trim(), item.city);
-        if (res.ok) {
-          item.location = res.location;
-          cache[k] = { lng: res.location.lng, lat: res.location.lat, ts: Date.now() };
-          saveAddrCache(cache);
-          log(`保存条目：编码成功 ${res.location.lng},${res.location.lat}（${res.cost}ms）`);
-          showToast("已定位");
-} else {
-          log(`保存条目：编码失败 ${res.error}`);
-        }
-      }
-    }
-
-    // 写入 kb
-    if (isNew) {
-      kb.items.unshift(item);
-    } else {
-      const idx = kb.items.findIndex(x => x.id === id);
-      if (idx !== -1) kb.items[idx] = item;
-    }
-
-    saveKB(kb);
-    if (changedAddr) showToast("已修改地址（建议重新定位）");
-    else showToast("已保存");
-    closeModal();
-    renderAll();
-}
-
-  // ---------- Tabs ----------
-  function setTab(which){
-    const isMap = which === "map";
-    tabMap.classList.toggle("active", isMap);
-    tabKB.classList.toggle("active", !isMap);
-    panelMap.classList.toggle("active", isMap);
-    panelKB.classList.toggle("active", !isMap);
-  }
-
-  // ---------- Event bindings ----------
-  tabMap.addEventListener("click", () => setTab("map"));
-  tabKB.addEventListener("click", () => setTab("kb"));
-
-  btnAdd.addEventListener("click", openModalAdd);
-  mClose.addEventListener("click", closeModal);
-  mask.addEventListener("click", (e) => { if (e.target === mask) closeModal(); });
-
-  mSave.addEventListener("click", saveFromModal);
-  mDelete.addEventListener("click", () => {
-    if (!editingId) return;
-    if (!confirm("确定删除该条目吗？")) return;
-    deleteItem(editingId);
-    saveKB(kb);
-    if (changedAddr) showToast("已修改地址（建议重新定位）");
-    else showToast("已保存");
-    closeModal();
-    renderAll();
+  if (hints.length) Logger.warn("diag.hints", { hints });
+
+  alert(
+    "诊断摘要已输出到日志面板（Logs）和控制台 Console。\n\n" +
+    hints.map((x,i)=>`${i+1}. ${x}`).join("\n")
+  );
 });
 
-  btnClearCache.addEventListener("click", () => {
-    if (!confirm("这会清空知识库与坐标缓存，确定继续？")) return;
-    clearAllCache();
-    kb = loadKB();
-    log("已清空：知识库 + 坐标缓存。");
-    showToast("已清空数据");
-    renderAll();
-});
-
-  btnApply.addEventListener("click", () => renderAll());
-  catFilter.addEventListener("change", () => renderAll());
-  qEl.addEventListener("keydown", (e) => { if (e.key === "Enter") renderAll(); });
-
-  fileEl.addEventListener("change", () => {
-    if (!fileEl.files?.length) return;
-    log(`已选择文件：${fileEl.files[0].name}`);
-  });
-
-  // ---------- Import flow ----------
-  btnImport.addEventListener("click", async () => {
-    if (!mapReady) return alert("地图未就绪");
-    if (!fileEl.files?.length) return alert("请先选择 Excel/CSV 文件");
-
-    const file = fileEl.files[0];
-    const delay = Math.max(0, Number(delayEl.value || 0));
-    const mode = importModeEl.value || "merge";
-
-    btnImport.disabled = true;
-    try {
-      const items = await readFileToItems(file);
-      if (!items.length) throw new Error("没有可用数据行");
-
-      log(`导入解析：${items.length} 条。开始处理（策略=${mode}）…`);
-
-      const cache = loadAddrCache();
-      let added=0, merged=0, overwritten=0, skipped=0, geoOk=0, geoFail=0;
-
-      for (let i=0; i<items.length; i++){
-        const it = items[i];
-
-        it.city = (it.city || DEFAULT_CITY).trim() || DEFAULT_CITY;
-        it.category = (it.category || "").trim();
-        it.note = (it.note || "").trim();
-
-        // 坐标：优先 cache
-        const k = addrKey(it.city, it.address);
-        const hit = cache?.[k];
-        if (hit?.lng != null && hit?.lat != null) {
-          it.location = { lng: Number(hit.lng), lat: Number(hit.lat) };
-        } else {
-          // 编码（地址存在才编码）
-          if (it.address) {
-            const res = await geocodeOne(`${it.city}${it.address}`.trim(), it.city);
-            if (res.ok) {
-              it.location = res.location;
-              cache[k] = { lng: res.location.lng, lat: res.location.lat, ts: Date.now() };
-              geoOk++;
-            } else {
-              geoFail++;
-            }
-          }
-        }
-
-        const r = upsertItem(it, mode);
-        if (r.action === "added") added++;
-        if (r.action === "merged") merged++;
-        if (r.action === "overwritten") overwritten++;
-        if (r.action === "skipped") skipped++;
-
-        if (delay) await sleep(delay);
-      }
-
-      saveAddrCache(cache);
-      saveKB(kb);
-
-      log(`导入完成：新增 ${added}，合并 ${merged}，覆盖 ${overwritten}，跳过 ${skipped}；编码 成功 ${geoOk} / 失败 ${geoFail}。`);
-      showToast(`导入完成：新增${added} 合并${merged} 覆盖${overwritten} 跳过${skipped}`);
-      renderAll();
-} catch (e) {
-      alert("导入失败：" + e.message);
-      log("导入失败：" + e.message);
-    } finally {
-      btnImport.disabled = false;
-    }
-  });
-
-function showToast(msg, dur = 2000){
-  const el = document.getElementById("toast");
-  if (!el) return;
-  el.textContent = msg;
-  el.classList.add("show");
-  setTimeout(()=> el.classList.remove("show"), dur);
-}
-
-
-  // ---------- Boot ----------
+/** =========================
+ *  8) Boot
+ *  ========================= */
 (async () => {
-  try {
-    // 先加载共享知识库（kb.json），保证所有访问者默认看到同一份数据
-    kb = await loadKBFromRemoteOrLocal();
+  Logger.info("boot.start", {
+    href: location.href,
+    protocol: location.protocol,
+    userAgent: navigator.userAgent
+  });
 
-    await initMap();
-    renderCatFilter();
-    renderAll();
-    if (typeof showToast === "function") showToast("系统初始化完成");
-  } catch (e) {
-    log("初始化失败：" + (e?.message || String(e)));
-    if (typeof showToast === "function") showToast("初始化失败");
-    renderAll(); // 仍可用知识库列表
+  // 初始化地图
+  try{
+    initMap();
+  }catch(e){
+    Logger.error("boot.map_init_fail", { error: String(e) });
   }
+
+  // 加载数据
+  try{
+    await loadKB();
+  }catch(e){
+    Logger.error("boot.loadKB_fail", { error: String(e) });
+  }
+
+  // 渲染 UI
+  try{
+    renderCatFilter();
+    renderAll("boot");
+    // 稍微延迟 fit，确保 map 已 ready
+    await sleep(30);
+    fitAll();
+  }catch(e){
+    Logger.error("boot.render_fail", { error: String(e) });
+  }
+
+  Logger.info("boot.done");
 })();
 </script>
-
-<div id="toast" class="toast"></div>
 </body>
 </html>
