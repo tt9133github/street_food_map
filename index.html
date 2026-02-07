@@ -73,6 +73,9 @@
     }
     .row input{flex:1;min-width:180px;}
 
+    .logs * { color: inherit !important; }
+
+    
     .logs{
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 12px;
@@ -80,7 +83,7 @@
     
       /* 强制深色背景 + 浅色文字，避免白底白字 */
       background: #0b0b0d !important;
-      color: #eaeaea !important;
+      color: #eaeaea  !important;
     
       border: 1px solid rgba(255,255,255,.14);
       border-radius: 12px;
@@ -90,7 +93,10 @@
       white-space: pre-wrap;
       word-break: break-word;
     }
-
+    
+    .logs * {
+      color: inherit !important;
+    }
 
     @media (max-width: 920px){
       .layout{grid-template-columns:1fr;}
