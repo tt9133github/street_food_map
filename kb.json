@@ -340,4 +340,58 @@
     {
       "id": "a43",
       "name": "蜀九香火锅",
-      "city"
+      "city": "成都市",
+      "address": "青羊区",
+      "category": "中餐",
+      "location": { "lng": null, "lat": null }
+    },
+    {
+      "id": "a44",
+      "name": "大龙燚火锅",
+      "city": "成都市",
+      "address": "武侯区",
+      "category": "中餐",
+      "location": { "lng": null, "lat": null }
+    },
+    {
+      "id": "a45",
+      "name": "柴门饭儿(宽窄巷子店)",
+      "city": "成都市",
+      "address": "青羊区宽窄巷子",
+      "category": "川菜",
+      "location": { "lng": null, "lat": null }
+    },
+    {
+      "id": "a46",
+      "name": "明婷饭店",
+      "city": "成都市",
+      "address": "金牛区",
+      "category": "川菜",
+      "location": { "lng": null, "lat": null }
+    },
+    {
+      "id": "a47",
+      "name": "冉三孃跷脚牛肉",
+      "city": "成都市",
+      "address": "青羊区",
+      "category": "牛肉",
+      "location": { "lng": null, "lat": null }
+    },
+    {
+      "id": "a48",
+      "name": "郭嬢嬢面馆",
+      "city": "成都市",
+      "address": "武侯区",
+      "category": "面",
+      "location": { "lng": null, "lat": null }
+    },
+    {
+      "id": "a49",
+      "name": "康二姐串串香",
+      "city": "成都市",
+      "address": "武侯区",
+      "category": "中餐",
+      "location": { "lng": null, "lat": null }
+    }
+  ]
+}
