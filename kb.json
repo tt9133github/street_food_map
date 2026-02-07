@@ -6,7 +6,7 @@
 			"name": "北京",
 			"city": "北京市",
 			"address": "朝阳区麦子店街道霄云路35号东信广场2层",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 116.461617,
 				"lat": 39.957245
@@ -18,7 +18,7 @@
 			"name": "廖师",
 			"city": "成都市",
 			"address": "武侯区人民南路四段17号6-2-3号",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.0682,
 				"lat": 30.625215
@@ -30,7 +30,7 @@
 			"name": "芙蓉凰",
 			"city": "成都市",
 			"address": "青羊区光华村街66号附7号",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.009884,
 				"lat": 30.664536
@@ -54,7 +54,7 @@
 			"name": "永乐饭店",
 			"city": "成都市",
 			"address": "武侯区肖家河中街36号",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.043665,
 				"lat": 30.630877
@@ -78,7 +78,7 @@
 			"name": "黑竹香鸡",
 			"city": "成都市",
 			"address": "金牛区",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.052236,
 				"lat": 30.691359
@@ -90,7 +90,7 @@
 			"name": "李四哥",
 			"city": "成都市",
 			"address": "双流区坝街54号",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 103.92342,
 				"lat": 30.574884
@@ -126,7 +126,7 @@
 			"name": "羊肉",
 			"city": "邛崃市",
 			"address": "南环路88-90号",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 109.035229,
 				"lat": 32.685779
@@ -174,7 +174,7 @@
 			"name": "三无餐馆",
 			"city": "成都市",
 			"address": "猛追湾",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.0951,
 				"lat": 30.661767
@@ -186,7 +186,7 @@
 			"name": "杨记江油烧肥肠",
 			"city": "成都市",
 			"address": "华阳",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.062044,
 				"lat": 30.501629
@@ -198,7 +198,7 @@
 			"name": "曹氏肥肠",
 			"city": "成都市",
 			"address": "红牌楼",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.019378,
 				"lat": 30.625275
@@ -222,7 +222,7 @@
 			"name": "马旺子",
 			"city": "眉山市",
 			"address": "",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": null,
 				"lat": null
@@ -305,7 +305,7 @@
 			"name": "小谭豆花",
 			"city": "成都市",
 			"address": "武侯区",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.043246,
 				"lat": 30.641849
@@ -328,7 +328,7 @@
 			"name": "洞子口张老二凉粉",
 			"city": "成都市",
 			"address": "金牛区洞子口",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.054888,
 				"lat": 30.723473
@@ -340,7 +340,7 @@
 			"name": "鸡毛店(李家沱店)",
 			"city": "成都市",
 			"address": "成华区",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.101452,
 				"lat": 30.659966
@@ -352,7 +352,7 @@
 			"name": "杜锅魁",
 			"city": "成都市",
 			"address": "青羊区",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.062415,
 				"lat": 30.674583
@@ -376,7 +376,7 @@
 			"name": "周记锅盔",
 			"city": "成都市",
 			"address": "武侯区",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.043246,
 				"lat": 30.641849
@@ -388,7 +388,7 @@
 			"name": "钟水饺",
 			"city": "成都市",
 			"address": "锦江区",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.117262,
 				"lat": 30.598726
@@ -400,7 +400,7 @@
 			"name": "赖汤圆",
 			"city": "成都市",
 			"address": "锦江区",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.117262,
 				"lat": 30.598726
@@ -412,7 +412,7 @@
 			"name": "龙抄手",
 			"city": "成都市",
 			"address": "锦江区",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.117262,
 				"lat": 30.598726
@@ -424,7 +424,7 @@
 			"name": "叶婆婆钵钵鸡",
 			"city": "成都市",
 			"address": "青羊区",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.062415,
 				"lat": 30.674583
@@ -436,7 +436,7 @@
 			"name": "夫妻肺片(总店)",
 			"city": "成都市",
 			"address": "青羊区",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.062415,
 				"lat": 30.674583
@@ -448,7 +448,7 @@
 			"name": "六婆串串香",
 			"city": "成都市",
 			"address": "武侯区",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.043246,
 				"lat": 30.641849
@@ -484,7 +484,7 @@
 			"name": "钢管厂五区小郡肝串串香",
 			"city": "成都市",
 			"address": "锦江区",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.117262,
 				"lat": 30.598726
@@ -496,7 +496,7 @@
 			"name": "蜀大侠火锅",
 			"city": "成都市",
 			"address": "武侯区",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.043246,
 				"lat": 30.641849
@@ -508,7 +508,7 @@
 			"name": "蜀九香火锅",
 			"city": "成都市",
 			"address": "青羊区",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.062415,
 				"lat": 30.674583
@@ -520,7 +520,7 @@
 			"name": "大龙燚火锅",
 			"city": "成都市",
 			"address": "武侯区",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.043246,
 				"lat": 30.641849
@@ -580,7 +580,7 @@
 			"name": "康二姐串串香",
 			"city": "成都市",
 			"address": "武侯区",
-			"category": "中餐",
+			"category": "川菜",
 			"location": {
 				"lng": 104.043246,
 				"lat": 30.641849
