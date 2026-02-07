@@ -4,115 +4,88 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>street_food_map</title>
-
-  <!-- Leaflet（不需要地图 key，GitHub Pages 直接可用） -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-
   <style>
-    html, body { height: 100%; margin: 0; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, "PingFang SC", "Microsoft YaHei", sans-serif; }
-
+    :root{
+      --border:#e9e9e9;
+      --muted:#666;
+      --bg:#fff;
+      --card:#fafafa;
+    }
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);}
     .topbar{
-      display:flex; gap:10px; align-items:center;
-      padding:10px 12px;
-      border-bottom:1px solid #e8e8e8;
-      position: sticky; top: 0; background: #fff; z-index: 10;
+      display:flex;gap:10px;align-items:center;
+      padding:10px 12px;border-bottom:1px solid var(--border);
+      position:sticky;top:0;background:var(--bg);z-index:10;
     }
-    .topbar input, .topbar select{
-      padding:8px 10px; border:1px solid #ddd; border-radius:10px;
-      font-size:14px;
+    .topbar input,.topbar select{
+      padding:8px 10px;border:1px solid #ddd;border-radius:10px;font-size:14px;
+      background:#fff;
     }
-    .topbar input{ flex: 1; min-width: 120px; }
-    .layout{
-      display:grid;
-      grid-template-columns: 1fr 360px;
-      height: calc(100% - 54px);
-    }
-    #map{ height: 100%; }
-    .side{
-      border-left:1px solid #eee;
-      overflow:auto;
-    }
-    .item{
-      padding:10px 12px;
-      border-bottom:1px solid #f0f0f0;
-      cursor:pointer;
-    }
-    .item:hover{ background:#fafafa; }
-    .name{ font-weight: 700; }
-    .meta{ font-size: 12px; color:#666; margin-top:4px; line-height:1.4; }
-    .badge{
-      display:inline-block; padding:2px 8px; border:1px solid #eee; border-radius:999px;
-      font-size:12px; margin-left:6px; color:#444; background:#fafafa;
-    }
+    .topbar input{flex:1;min-width:140px;}
+    .layout{display:grid;grid-template-columns:1fr 360px;height:calc(100% - 54px);}
+    #map{height:100%;width:100%;}
+    .side{border-left:1px solid var(--border);overflow:auto;background:#fff;}
+    .item{padding:10px 12px;border-bottom:1px solid #f2f2f2;cursor:pointer;}
+    .item:hover{background:#fafafa;}
+    .name{font-weight:700;}
+    .meta{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4;}
+    .badge{display:inline-block;padding:2px 8px;border:1px solid #eee;border-radius:999px;font-size:12px;margin-left:6px;color:#444;background:#fafafa;}
+    .warn{color:#b45309;}
+    .err{color:#b91c1c;}
 
-    /* ===== 设置按钮 + 抽屉 ===== */
+    /* 设置按钮 + 抽屉 */
     .fab{
-      position: fixed; right: 14px; bottom: 14px; z-index: 99999;
-      width: 46px; height: 46px; border-radius: 14px;
-      border: 1px solid rgba(0,0,0,.12);
-      background: rgba(255,255,255,.92);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 6px 24px rgba(0,0,0,.14);
-      cursor:pointer;
-      font-size:18px;
+      position:fixed;right:14px;bottom:14px;z-index:99999;
+      width:46px;height:46px;border-radius:14px;
+      border:1px solid rgba(0,0,0,.12);
+      background:rgba(255,255,255,.92);
+      backdrop-filter:blur(10px);
+      box-shadow:0 6px 24px rgba(0,0,0,.14);
+      cursor:pointer;font-size:18px;
     }
-    .mask{
-      position:fixed; inset:0; background: rgba(0,0,0,.35);
-      opacity:0; pointer-events:none; transition: .18s ease; z-index: 99998;
-    }
+    .mask{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:.18s ease;z-index:99998;}
     .drawer{
-      position:fixed; top:0; right:0; height:100vh; width:min(420px, 92vw);
-      background: rgba(22,22,24,.96); color:#fff;
-      transform: translateX(100%); transition: .18s ease;
-      z-index: 99999; display:flex; flex-direction:column;
-      border-left: 1px solid rgba(255,255,255,.12);
+      position:fixed;top:0;right:0;height:100vh;width:min(420px,92vw);
+      background:rgba(22,22,24,.96);color:#fff;
+      transform:translateX(100%);transition:.18s ease;
+      z-index:99999;display:flex;flex-direction:column;
+      border-left:1px solid rgba(255,255,255,.12);
     }
-    .open .mask{ opacity:1; pointer-events:auto; }
-    .open .drawer{ transform: translateX(0); }
-
-    .drawer-hd{
-      padding: 12px 14px;
-      border-bottom:1px solid rgba(255,255,255,.12);
-      display:flex; align-items:center; justify-content:space-between;
-    }
+    .open .mask{opacity:1;pointer-events:auto;}
+    .open .drawer{transform:translateX(0);}
+    .drawer-hd{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:space-between;}
     .btn{
-      background: rgba(255,255,255,.10);
+      background:rgba(255,255,255,.10);
       border:1px solid rgba(255,255,255,.18);
-      color:#fff; padding:7px 10px; border-radius:12px;
-      cursor:pointer; font-size:13px;
+      color:#fff;padding:7px 10px;border-radius:12px;
+      cursor:pointer;font-size:13px;
     }
-    .btn:hover{ background: rgba(255,255,255,.14); }
-    .drawer-bd{ padding: 12px 14px; overflow:auto; flex:1; }
-    .sec{
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.06);
-      border-radius:14px; padding:12px; margin-bottom:12px;
+    .btn:hover{background:rgba(255,255,255,.14);}
+    .drawer-bd{padding:12px 14px;overflow:auto;flex:1;}
+    .sec{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);border-radius:14px;padding:12px;margin-bottom:12px;}
+    .sec h3{margin:0 0 8px 0;font-size:14px;}
+    .small{font-size:12px;color:rgba(255,255,255,.72);line-height:1.5;}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    .row input,.row select{
+      padding:7px 9px;border-radius:10px;border:1px solid rgba(255,255,255,.18);
+      background:rgba(255,255,255,.10);color:#fff;font-size:13px;
+      outline:none;
     }
-    .sec h3{ margin:0 0 8px 0; font-size:14px; }
-    .small{ font-size:12px; color: rgba(255,255,255,.72); line-height:1.5; }
+    .row input{flex:1;min-width:180px;}
     .logs{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size:12px; line-height:1.4;
-      background: rgba(0,0,0,.35);
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      font-size:12px;line-height:1.4;
+      background:rgba(0,0,0,.35);
       border:1px solid rgba(255,255,255,.12);
       border-radius:12px;
-      padding:10px;
-      height: 46vh;
-      overflow:auto;
-      white-space:pre-wrap;
-      word-break:break-word;
+      padding:10px;height:46vh;overflow:auto;
+      white-space:pre-wrap;word-break:break-word;
     }
-    .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-    .row select{ padding:7px 9px; border-radius:10px; border:1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.10); color:#fff; }
-    .kv{ font-size:12px; color: rgba(255,255,255,.78); line-height:1.5; }
+
     @media (max-width: 920px){
-      .layout{ grid-template-columns: 1fr; }
-      .side{ height: 42vh; border-left:none; border-top:1px solid #eee; }
-      #map{ height: calc(58vh - 54px); }
+      .layout{grid-template-columns:1fr;}
+      .side{height:42vh;border-left:none;border-top:1px solid var(--border);}
+      #map{height:calc(58vh - 54px);}
     }
   </style>
 </head>
@@ -137,6 +110,41 @@
     </div>
     <div class="drawer-bd">
       <div class="sec">
+        <h3>数据源（Supabase）</h3>
+        <div class="small">
+          这里请填写 <b>anon public key</b>（可公开）。<br/>
+          <span class="warn">不要使用 service_role key</span>（管理员权限，放前端会被盗用）。
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <input id="sbUrl" placeholder="Supabase URL，例如 https://xxxx.supabase.co" />
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <input id="sbAnon" placeholder="Supabase anon public key（eyJ...）" />
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <button class="btn" id="btnSaveCfg">保存配置</button>
+          <button class="btn" id="btnReload">重新加载数据</button>
+        </div>
+        <div class="small" id="sbHint" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="sec">
+        <h3>高德地图 Key</h3>
+        <div class="small">
+          为了避免把 Key 写进仓库，这里运行时加载高德 JS API。<br/>
+          填入后保存，然后刷新页面即可。
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <input id="amapKey" placeholder="高德 Web JS API Key" />
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <button class="btn" id="btnSaveAmap">保存 Key</button>
+          <button class="btn" id="btnReloadMap">重载地图脚本</button>
+        </div>
+        <div class="small" id="amapHint" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="sec">
         <h3>日志</h3>
         <div class="row" style="margin-bottom:8px;">
           <select id="logLevel">
@@ -148,55 +156,23 @@
           <button class="btn" id="btnClearLog">清空</button>
           <button class="btn" id="btnCopyLog">复制</button>
         </div>
-        <div class="small">Console 也会同步输出；这里方便在手机上直接看。</div>
+        <div class="small">Console 同步输出；这里方便手机端查看。</div>
         <div class="logs" id="logs"></div>
-      </div>
-
-      <div class="sec">
-        <h3>数据源</h3>
-        <div class="small">
-          当前使用 Supabase REST API 拉取 places 表数据。<br/>
-          ⚠️ 请使用 <b>anon public key</b>，不要把 service_role key 放到前端（会被任何人盗用）。
-        </div>
-        <div class="kv" id="diag"></div>
       </div>
     </div>
   </aside>
 
   <script>
     /**********************
-     * 0) 配置：务必使用 anon key
-     **********************/
-    const SUPABASE_PROJECT_REF = "gwwiwhmryyruyxrmvjbm";
-    const SUPABASE_URL = `https://${SUPABASE_PROJECT_REF}.supabase.co`;
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3d2l3aG1yeXlydXl4cm12amJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NDA1MDcsImV4cCI6MjA4NjAxNjUwN30.Nl3u335qC5MylCYLjTfTm7vOu4msvl3QjplZuVPqAg4";
-
-    const API_PLACES = `${SUPABASE_URL}/rest/v1/places?select=*`;
-
-    /**********************
-     * 1) 日志系统（可在设置里查看）
+     * 1) 轻量日志系统（写 console + 设置抽屉）
      **********************/
     const LogLevel = { debug: 10, info: 20, warn: 30, error: 40 };
     let currentLevel = localStorage.getItem("sfm_log_level") || "info";
-    const logsEl = () => document.getElementById("logs");
 
     function nowStr(){
       const d = new Date();
       const pad = (n)=> String(n).padStart(2,"0");
       return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-    }
-    function log(level, msg, extra){
-      if (LogLevel[level] < LogLevel[currentLevel]) return;
-      const line = `[${nowStr()}] [${level.toUpperCase()}] ${msg}` + (extra ? ` | ${extra}` : "");
-      // console
-      const fn = console[level] || console.log;
-      fn(line);
-      // panel
-      const el = logsEl();
-      if (el){
-        el.textContent += line + "\n";
-        el.scrollTop = el.scrollHeight;
-      }
     }
     function errToStr(e){
       try{
@@ -208,21 +184,26 @@
         return String(e);
       }
     }
-
-    window.addEventListener("error", (ev) => {
-      log("error", "window.onerror", `${ev.message} @ ${ev.filename}:${ev.lineno}:${ev.colno}`);
-    });
-    window.addEventListener("unhandledrejection", (ev) => {
-      log("error", "unhandledrejection", errToStr(ev.reason));
-    });
+    function log(level, msg, extra){
+      if (LogLevel[level] < LogLevel[currentLevel]) return;
+      const line = `[${nowStr()}] [${level.toUpperCase()}] ${msg}` + (extra ? ` | ${extra}` : "");
+      (console[level] || console.log)(line);
+      const el = document.getElementById("logs");
+      if (el){
+        el.textContent += line + "\n";
+        el.scrollTop = el.scrollHeight;
+      }
+    }
+    window.addEventListener("error", (ev) => log("error", "window.onerror", `${ev.message} @ ${ev.filename}:${ev.lineno}:${ev.colno}`));
+    window.addEventListener("unhandledrejection", (ev) => log("error", "unhandledrejection", errToStr(ev.reason)));
 
     /**********************
      * 2) 设置抽屉
      **********************/
     const body = document.body;
+    const drawer = document.getElementById("drawer");
     const fab = document.getElementById("fab");
     const mask = document.getElementById("mask");
-    const drawer = document.getElementById("drawer");
     const closeBtn = document.getElementById("close");
 
     function openDrawer(){ body.classList.add("open"); drawer.setAttribute("aria-hidden","false"); }
@@ -237,77 +218,187 @@
     logLevelSel.addEventListener("change", () => {
       currentLevel = logLevelSel.value;
       localStorage.setItem("sfm_log_level", currentLevel);
-      log("info", "日志级别已切换", currentLevel);
+      log("info", "日志级别切换", currentLevel);
     });
-
     document.getElementById("btnClearLog").addEventListener("click", () => {
-      logsEl().textContent = "";
+      document.getElementById("logs").textContent = "";
       log("info", "日志已清空");
     });
     document.getElementById("btnCopyLog").addEventListener("click", async () => {
-      const text = logsEl().textContent || "";
+      const text = document.getElementById("logs").textContent || "";
       try{
         await navigator.clipboard.writeText(text);
         log("info", "日志已复制到剪贴板");
       }catch(e){
-        log("warn", "复制失败（可能是浏览器限制）", errToStr(e));
+        log("warn", "复制失败（浏览器限制）", errToStr(e));
       }
     });
 
-    function renderDiag(){
-      const el = document.getElementById("diag");
-      el.innerHTML = `
-        <div>API: ${API_PLACES}</div>
-        <div>Key: ${SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.startsWith("eyJ") ? "anon key 已配置" : "未配置 / 不是 anon key"}</div>
-        <div>提示：如果你把 service_role key 放前端，请立刻 Rotate。</div>
-      `;
+    /**********************
+     * 3) 配置：运行时输入，避免写进仓库
+     **********************/
+    const CFG_KEY = "sfm_cfg_v1";
+    function loadCfg(){
+      try{
+        return JSON.parse(localStorage.getItem(CFG_KEY) || "{}") || {};
+      }catch{
+        return {};
+      }
+    }
+    function saveCfg(patch){
+      const cur = loadCfg();
+      const next = { ...cur, ...patch };
+      localStorage.setItem(CFG_KEY, JSON.stringify(next));
+      return next;
     }
 
+    const sbUrlEl = document.getElementById("sbUrl");
+    const sbAnonEl = document.getElementById("sbAnon");
+    const sbHintEl = document.getElementById("sbHint");
+    const amapKeyEl = document.getElementById("amapKey");
+    const amapHintEl = document.getElementById("amapHint");
+
+    function renderCfgToUI(){
+      const cfg = loadCfg();
+      sbUrlEl.value = cfg.supabaseUrl || "https://gwwiwhmryyruyxrmvjbm.supabase.co";
+      sbAnonEl.value = cfg.supabaseAnonKey || "";
+      amapKeyEl.value = cfg.amapKey || "";
+      renderHints();
+    }
+
+    function renderHints(){
+      const cfg = loadCfg();
+      const urlOk = !!cfg.supabaseUrl && cfg.supabaseUrl.includes(".supabase.co");
+      const anonOk = !!cfg.supabaseAnonKey && cfg.supabaseAnonKey.startsWith("eyJ");
+      sbHintEl.innerHTML =
+        `URL：${urlOk ? "OK" : "<span class='err'>缺失/不正确</span>"}；` +
+        `anon key：${anonOk ? "OK" : "<span class='err'>请填 anon public key（eyJ...）</span>"}`;
+      amapHintEl.innerHTML =
+        `高德 Key：${cfg.amapKey ? "已配置" : "<span class='err'>未配置</span>"}`;
+    }
+
+    document.getElementById("btnSaveCfg").addEventListener("click", () => {
+      const url = (sbUrlEl.value || "").trim();
+      const anon = (sbAnonEl.value || "").trim();
+      saveCfg({ supabaseUrl: url, supabaseAnonKey: anon });
+      renderHints();
+      log("info", "Supabase 配置已保存", url);
+    });
+    document.getElementById("btnSaveAmap").addEventListener("click", () => {
+      const key = (amapKeyEl.value || "").trim();
+      saveCfg({ amapKey: key });
+      renderHints();
+      log("info", "高德 Key 已保存");
+    });
+    document.getElementById("btnReload").addEventListener("click", () => {
+      closeDrawer();
+      bootLoadData(); // 重新拉数据
+    });
+    document.getElementById("btnReloadMap").addEventListener("click", async () => {
+      closeDrawer();
+      await ensureAMapLoaded(true);
+      // 脚本重载后重新初始化地图与标点
+      initMap();
+      renderAll();
+    });
+
     /**********************
-     * 3) 地图 + 渲染
+     * 4) 高德地图：动态加载脚本（保留原始高德版）
      **********************/
-    let map, markersLayer;
-    let allItems = [];
+    let map = null;
+    let markers = [];
+    let amapLoading = null;
+
+    function removeOldAMapScript(){
+      const olds = document.querySelectorAll('script[data-amap="1"]');
+      olds.forEach(s => s.remove());
+      // 清掉全局，避免冲突
+      try{ delete window.AMap; }catch{}
+      try{ delete window.AMapUI; }catch{}
+    }
+
+    async function ensureAMapLoaded(forceReload=false){
+      const cfg = loadCfg();
+      const key = cfg.amapKey;
+      if (!key){
+        log("error", "未配置高德 Key，地图无法加载。请在设置中填入。");
+        return false;
+      }
+      if (!forceReload && window.AMap){
+        return true;
+      }
+      if (amapLoading && !forceReload){
+        return amapLoading;
+      }
+
+      amapLoading = new Promise((resolve) => {
+        if (forceReload) removeOldAMapScript();
+
+        log("info", "加载高德地图脚本…");
+        const s = document.createElement("script");
+        s.dataset.amap = "1";
+        s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}`;
+        s.async = true;
+        s.onload = () => {
+          log("info", "高德脚本加载成功");
+          resolve(true);
+        };
+        s.onerror = () => {
+          log("error", "高德脚本加载失败（检查 key / 网络 / 域名白名单）");
+          resolve(false);
+        };
+        document.head.appendChild(s);
+      });
+
+      return amapLoading;
+    }
 
     function initMap(){
-      map = L.map("map", { zoomControl: true });
-      // 默认成都（你也可以改）
-      map.setView([30.5728, 104.0668], 12);
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap'
-      }).addTo(map);
-
-      markersLayer = L.layerGroup().addTo(map);
-      log("info", "地图初始化完成");
+      if (!window.AMap){
+        log("error", "AMap 未就绪，initMap 取消");
+        return;
+      }
+      // 默认成都（你原始代码若不同，可自行改）
+      const center = [104.0668, 30.5728];
+      map = new AMap.Map("map", {
+        zoom: 12,
+        center,
+        viewMode: "2D"
+      });
+      log("info", "地图初始化完成", `center=${center.join(",")}`);
     }
 
     function clearMarkers(){
-      markersLayer.clearLayers();
+      if (!map) return;
+      for (const m of markers) m.setMap(null);
+      markers = [];
     }
-
     function addMarker(it){
-      if (!it || it.lat == null || it.lng == null) return;
-      const m = L.marker([it.lat, it.lng]);
-      const title = (it.name || "(未命名)") + (it.category ? ` / ${it.category}` : "");
-      const addr = [it.city, it.address].filter(Boolean).join(" ");
-      m.bindPopup(`<b>${escapeHtml(title)}</b><br/>${escapeHtml(addr)}`);
-      m.addTo(markersLayer);
+      if (!map) return;
+      if (it.lng == null || it.lat == null) return;
+      const m = new AMap.Marker({
+        position: [it.lng, it.lat],
+        title: it.name || "(未命名)"
+      });
+      m.setMap(map);
+      m.on("click", () => {
+        const title = (it.name || "(未命名)") + (it.category ? ` / ${it.category}` : "");
+        const addr = [it.city, it.address].filter(Boolean).join(" ");
+        const html = `<div style="font-size:13px;"><b>${escapeHtml(title)}</b><br/>${escapeHtml(addr)}</div>`;
+        const info = new AMap.InfoWindow({ content: html, offset: new AMap.Pixel(0,-30) });
+        info.open(map, m.getPosition());
+      });
       it.__marker = m;
+      markers.push(m);
     }
 
-    function escapeHtml(s){
-      return String(s ?? "")
-        .replaceAll("&","&amp;")
-        .replaceAll("<","&lt;")
-        .replaceAll(">","&gt;")
-        .replaceAll('"',"&quot;")
-        .replaceAll("'","&#39;");
-    }
+    /**********************
+     * 5) 数据：改为远程 Supabase REST API（失败回退 kb.json）
+     **********************/
+    let allItems = [];
 
     function normRow(r){
-      // 你现在 DB 字段：id,name,city,address,category,lng,lat,updated_at
+      // Supabase places: id,name,city,address,category,lng,lat,updated_at
       return {
         id: r.id,
         name: r.name || "",
@@ -316,8 +407,106 @@
         category: r.category || "",
         lng: (r.lng === null || r.lng === undefined) ? null : Number(r.lng),
         lat: (r.lat === null || r.lat === undefined) ? null : Number(r.lat),
-        updatedAt: r.updated_at || r.updatedAt || null
+        updatedAt: r.updated_at || null
       };
+    }
+
+    async function loadFromSupabase(){
+      const cfg = loadCfg();
+      const base = (cfg.supabaseUrl || "").trim();
+      const anon = (cfg.supabaseAnonKey || "").trim();
+
+      if (!base || !base.includes(".supabase.co")){
+        log("warn", "Supabase URL 未配置/不正确，跳过远程加载");
+        return null;
+      }
+      if (!anon || !anon.startsWith("eyJ")){
+        log("warn", "Supabase anon key 未配置/不正确（必须 anon public key: eyJ...），跳过远程加载");
+        return null;
+      }
+
+      const url = `${base.replace(/\/$/,"")}/rest/v1/places?select=*`;
+      log("info", "开始远程拉取 places", url);
+
+      const t0 = performance.now();
+      const res = await fetch(url, {
+        headers: {
+          apikey: anon,
+          Authorization: `Bearer ${anon}`
+        },
+        cache: "no-store"
+      }).catch(e => {
+        log("error", "fetch 失败", errToStr(e));
+        return null;
+      });
+      if (!res) return null;
+
+      const t1 = performance.now();
+      log("info", "远程请求完成", `status=${res.status} cost=${Math.round(t1-t0)}ms`);
+
+      if (!res.ok){
+        const txt = await res.text().catch(()=> "");
+        log("error", "远程返回非 2xx", txt || `HTTP ${res.status}`);
+        return null;
+      }
+
+      const data = await res.json().catch(e => {
+        log("error", "JSON 解析失败", errToStr(e));
+        return null;
+      });
+      if (!Array.isArray(data)){
+        log("error", "远程返回不是数组", JSON.stringify(data).slice(0, 500));
+        return null;
+      }
+
+      log("info", "远程数据行数", String(data.length));
+      return data.map(normRow);
+    }
+
+    async function loadFromLocalKb(){
+      log("info", "回退读取本地 kb.json");
+      try{
+        const r = await fetch("./kb.json", { cache: "no-store" });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const kb = await r.json();
+        const items = Array.isArray(kb.items) ? kb.items : [];
+        // 兼容你原始 kb.json 结构（location{lng,lat}）
+        const mapped = items.map(it => ({
+          id: it.id,
+          name: it.name || "",
+          city: it.city || "",
+          address: it.address || "",
+          category: it.category || "",
+          lng: it?.location?.lng ?? null,
+          lat: it?.location?.lat ?? null,
+          updatedAt: it.updatedAt || null
+        }));
+        log("info", "本地数据行数", String(mapped.length));
+        return mapped;
+      }catch(e){
+        log("error", "本地 kb.json 读取失败", errToStr(e));
+        return [];
+      }
+    }
+
+    async function bootLoadData(){
+      // 先远程，失败再本地
+      const remote = await loadFromSupabase();
+      allItems = remote || await loadFromLocalKb();
+      renderCat(allItems);
+      applyFilter();
+    }
+
+    /**********************
+     * 6) UI：列表/过滤/渲染
+     **********************/
+    function escapeHtml(s){
+      return String(s ?? "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#39;");
     }
 
     function renderCat(items){
@@ -329,18 +518,18 @@
     function renderList(items){
       const list = document.getElementById("list");
       if (!items.length){
-        list.innerHTML = `<div class="item"><div class="name">没有数据</div><div class="meta">请检查 API key / RLS / 网络</div></div>`;
+        list.innerHTML = `<div class="item"><div class="name">没有数据</div><div class="meta">请检查设置里的 Supabase Key / RLS / 网络</div></div>`;
         return;
       }
       list.innerHTML = items.map(it => {
         const title = escapeHtml(it.name || "(未命名)");
         const cat = it.category ? `<span class="badge">${escapeHtml(it.category)}</span>` : "";
-        const addr = escapeHtml([it.city, it.address].filter(Boolean).join(" "));
-        const loc = (it.lng != null && it.lat != null) ? `${it.lng.toFixed(6)}, ${it.lat.toFixed(6)}` : "无坐标";
+        const addr = escapeHtml([it.city, it.address].filter(Boolean).join(" ")) || "(无地址)";
+        const loc = (it.lng != null && it.lat != null) ? `${Number(it.lng).toFixed(6)}, ${Number(it.lat).toFixed(6)}` : "<span class='warn'>无坐标</span>";
         return `
           <div class="item" data-id="${escapeHtml(it.id)}">
             <div class="name">${title}${cat}</div>
-            <div class="meta">${addr || "(无地址)"}<br/>${loc}</div>
+            <div class="meta">${addr}<br/>${loc}</div>
           </div>
         `;
       }).join("");
@@ -349,12 +538,16 @@
         el.addEventListener("click", () => {
           const id = el.getAttribute("data-id");
           const it = allItems.find(x => String(x.id) === String(id));
-          if (it && it.lat != null && it.lng != null){
-            map.setView([it.lat, it.lng], 16, { animate: true });
-            if (it.__marker) it.__marker.openPopup();
+          if (!it){
+            log("warn", "点击项不存在", id);
+            return;
+          }
+          if (it.lng != null && it.lat != null && map){
+            map.setZoomAndCenter(16, [it.lng, it.lat], true);
+            if (it.__marker) it.__marker.emit("click", { target: it.__marker });
             log("info", "定位到条目", `${it.id} ${it.name}`);
-          } else {
-            log("warn", "该条目无坐标，无法定位", `${it?.id} ${it?.name}`);
+          }else{
+            log("warn", "该条目无坐标或地图未就绪", `${it.id} ${it.name}`);
           }
         });
       });
@@ -379,65 +572,29 @@
     }
 
     document.getElementById("q").addEventListener("input", () => {
-      // 简单防抖
       clearTimeout(window.__sfm_q_t);
       window.__sfm_q_t = setTimeout(applyFilter, 120);
     });
     document.getElementById("cat").addEventListener("change", applyFilter);
 
     /**********************
-     * 4) 远程读取：Supabase REST API
-     **********************/
-    async function loadFromRemote(){
-      log("info", "开始读取远程数据", API_PLACES);
-
-      if (!SUPABASE_ANON_KEY || !SUPABASE_ANON_KEY.startsWith("eyJ")) {
-        log("error", "未配置 anon public key（必须是 eyJ...）");
-        return [];
-      }
-
-      const t0 = performance.now();
-      const res = await fetch(API_PLACES, {
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`
-        },
-        cache: "no-store"
-      });
-
-      const t1 = performance.now();
-      log("info", "远程请求完成", `status=${res.status} cost=${Math.round(t1 - t0)}ms`);
-
-      if (!res.ok){
-        const txt = await res.text().catch(()=> "");
-        log("error", "远程请求失败", txt || `HTTP ${res.status}`);
-        return [];
-      }
-
-      const data = await res.json();
-      if (!Array.isArray(data)){
-        log("error", "返回不是数组（检查 API / 表名）", JSON.stringify(data).slice(0, 300));
-        return [];
-      }
-
-      log("info", "远程数据解析成功", `rows=${data.length}`);
-      return data.map(normRow);
-    }
-
-    /**********************
-     * 5) 启动
+     * 7) 启动
      **********************/
     (async function main(){
-      renderDiag();
-      initMap();
+      renderCfgToUI();
+      renderHints();
 
-      try{
-        allItems = await loadFromRemote();
-        renderCat(allItems);
-        applyFilter();
-      }catch(e){
-        log("error", "初始化失败", errToStr(e));
+      log("info", "页面启动");
+
+      const ok = await ensureAMapLoaded(false);
+      if (ok){
+        initMap();
+      }else{
+        // 地图没加载也不阻塞数据展示
+        log("warn", "地图未加载成功，但列表仍可用。请在设置中检查高德 Key。");
       }
+
+      await bootLoadData();
     })();
   </script>
 </body>
