@@ -72,15 +72,25 @@
       outline:none;
     }
     .row input{flex:1;min-width:180px;}
+
     .logs{
-      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-      font-size:12px;line-height:1.4;
-      background:rgba(0,0,0,.35);
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:12px;
-      padding:10px;height:46vh;overflow:auto;
-      white-space:pre-wrap;word-break:break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.4;
+    
+      /* 强制深色背景 + 浅色文字，避免白底白字 */
+      background: #0b0b0d !important;
+      color: #eaeaea !important;
+    
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 12px;
+      padding: 10px;
+      height: 46vh;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
+
 
     @media (max-width: 920px){
       .layout{grid-template-columns:1fr;}
@@ -535,10 +545,26 @@
 
     function renderCat(items){
       const sel = document.getElementById("cat");
-      const cats = Array.from(new Set(items.map(x => (x.category || "").trim()).filter(Boolean))).sort();
-      sel.innerHTML = `<option value="">全部品类</option>` + cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+    
+      // 统计各品类数量
+      const counts = new Map();
+      for (const it of items || []) {
+        const c = (it.category || "").trim();
+        if (!c) continue;
+        counts.set(c, (counts.get(c) || 0) + 1);
+      }
+    
+      // 排序：按数量降序，再按名称
+      const cats = Array.from(counts.entries())
+        .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0], "zh"));
+    
+      // 生成 option：value 仍是纯品类名，显示文本带数量
+      sel.innerHTML =
+        `<option value="">全部品类 (${items?.length || 0})</option>` +
+        cats.map(([c, n]) => `<option value="${escapeHtml(c)}">${escapeHtml(c)} (${n})</option>`).join("");
     }
 
+    
     function renderList(items){
       const list = document.getElementById("list");
       if (!items.length){
