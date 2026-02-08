@@ -1,0 +1,105 @@
+:root{
+  --border:#e9e9e9;
+  --muted:#666;
+  --bg:#fff;
+  --card:#fafafa;
+}
+html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);}
+.topbar{
+  display:flex;gap:10px;align-items:center;
+  padding:10px 12px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:var(--bg);z-index:10;
+}
+.topbar input,.topbar select{
+  padding:8px 10px;border:1px solid #ddd;border-radius:10px;font-size:14px;
+  background:#fff;
+}
+.topbar input{flex:1;min-width:140px;}
+.layout{display:grid;grid-template-columns:1fr 360px;height:calc(100% - 54px);}
+#map{height:100%;width:100%;}
+.side{border-left:1px solid var(--border);overflow:auto;background:#fff;}
+.item{padding:10px 12px;border-bottom:1px solid #f2f2f2;cursor:pointer;}
+.item:hover{background:#fafafa;}
+.name{font-weight:700;}
+.meta{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4;}
+.badge{display:inline-block;padding:2px 8px;border:1px solid #eee;border-radius:999px;font-size:12px;margin-left:6px;color:#444;background:#fafafa;}
+.warn{color:#b45309;}
+.err{color:#b91c1c;}
+
+/* 设置按钮 + 抽屉 */
+.fab{
+  position:fixed;right:14px;bottom:14px;z-index:99999;
+  width:46px;height:46px;border-radius:14px;
+  border:1px solid rgba(0,0,0,.12);
+  background:rgba(255,255,255,.92);
+  backdrop-filter:blur(10px);
+  box-shadow:0 6px 24px rgba(0,0,0,.14);
+  cursor:pointer;font-size:18px;
+}
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:.18s ease;z-index:99998;}
+.drawer{
+  position:fixed;top:0;right:0;height:100vh;width:min(420px,92vw);
+  background:rgba(22,22,24,.96);color:#fff;
+  transform:translateX(100%);transition:.18s ease;
+  z-index:99999;display:flex;flex-direction:column;
+  border-left:1px solid rgba(255,255,255,.12);
+}
+.open .mask{opacity:1;pointer-events:auto;}
+.open .drawer{transform:translateX(0);}
+.drawer-hd{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:space-between;}
+.btn{
+  background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.18);
+  color:#fff;padding:7px 10px;border-radius:12px;
+  cursor:pointer;font-size:13px;
+}
+.btn:hover{background:rgba(255,255,255,.14);}
+.btn.danger{border-color:rgba(255,107,107,.45);}
+.btn.primary{border-color:rgba(99,102,241,.55);}
+.drawer-bd{padding:12px 14px;overflow:auto;flex:1;}
+.sec{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);border-radius:14px;padding:12px;margin-bottom:12px;}
+.sec h3{margin:0 0 8px 0;font-size:14px;}
+.small{font-size:12px;color:rgba(255,255,255,.72);line-height:1.5;}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.row input,.row textarea{
+  padding:7px 9px;border-radius:10px;border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.10);color:#fff;font-size:13px;
+  outline:none;
+}
+.row select{
+  padding:7px 9px;border-radius:10px;border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.10);color:#fff;
+  font-size:13px;
+  outline:none;
+}
+.row input{flex:1;min-width:180px;}
+.row textarea{width:100%;min-height:140px;resize:vertical;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+.split{display:grid;grid-template-columns:1fr;gap:8px;}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:3px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.08);font-size:12px;color:rgba(255,255,255,.85);
+}
+
+/* 日志：强制深色背景 + 浅色文字 */
+.logs{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  background: #0b0b0d !important;
+  color: #eaeaea !important;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 12px;
+  padding: 10px;
+  height: 34vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.logs *{ color: inherit !important; }
+
+@media (max-width: 920px){
+  .layout{grid-template-columns:1fr;}
+  .side{height:42vh;border-left:none;border-top:1px solid var(--border);}
+  #map{height:calc(58vh - 54px);}
+}
