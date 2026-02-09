@@ -249,16 +249,16 @@
     const lnglat = [pos.lng, pos.lat];
     const icon = new AMap.Icon({
       image: "https://webapi.amap.com/theme/v1.3/markers/b/mark_rs.png",
-      // size: new AMap.Size(24, 24),
-      // imageSize: new AMap.Size(24, 24)
+      size: new AMap.Size(20, 20),
+      imageSize: new AMap.Size(20, 20)
     });
     if (!userMarker){
       userMarker = new AMap.Marker({
         position: lnglat,
         title: "Current Location",
-        icon
-        // zIndex: 200,
-        // offset: new AMap.Pixel(-12, -24),
+        icon,
+        zIndex: 200,
+        offset: new AMap.Pixel(-12, -24),
       });
       userMarker.setMap(map);
     }else{
@@ -1191,7 +1191,7 @@
       if (isMobile()){
         const pos = await getCurrentPosition();
         setUserMarker(pos);
-        if (map) map.setZoomAndCenter(14, [pos.lng, pos.lat], true);
+        //if (map) map.setZoomAndCenter(14, [pos.lng, pos.lat], true);
       }
     }catch (e){
       log("warn", "Auto locate failed", errToStr(e));
