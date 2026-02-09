@@ -413,11 +413,48 @@
     const ua = navigator.userAgent || "";
     return /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
   }
+  function isIOS(){
+    const ua = navigator.userAgent || "";
+    return /iPhone|iPad|iPod/i.test(ua);
+  }
 
   function mapNavMode(mode){
     if (mode === "walking") return "walk";
     if (mode === "driving") return "drive";
     return "drive";
+  }
+  function mapNavModeIOS(mode){
+    if (mode === "walking") return 2; // walking
+    return 0; // driving
+  }
+
+  function buildAmapIOSScheme(it, opts){
+    const options = Object.assign({
+      mode: "driving"
+    }, opts || {});
+    const t = mapNavModeIOS(options.mode);
+    const name = encodeURIComponent(it.name || "destination");
+    // iosamap://route?sourceApplication=app&dlat=..&dlon=..&dname=..&dev=0&t=0
+    return `iosamap://route?sourceApplication=street_food_map&dlat=${encodeURIComponent(it.lat)}&dlon=${encodeURIComponent(it.lng)}&dname=${name}&dev=0&t=${t}`;
+  }
+
+  function openAmapIOS(it, opts){
+    const url = buildAmapIOSScheme(it, opts);
+    const fallback = buildAmapNavUri(it, { callnative: 0, mode: mapNavMode((opts && opts.mode) || "driving") });
+    const start = Date.now();
+    let hidden = false;
+    const onVis = () => {
+      if (document.visibilityState === "hidden") hidden = true;
+    };
+    document.addEventListener("visibilitychange", onVis, { once: true });
+    location.href = url;
+    setTimeout(() => {
+      document.removeEventListener("visibilitychange", onVis);
+      if (!hidden && Date.now() - start < 1500){
+        location.href = fallback;
+      }
+    }, 1200);
+    return url;
   }
 
   function clearRouteLine(){
@@ -482,9 +519,13 @@
     }
     const options = Object.assign({ mode: "driving" }, opts || {});
     if (isMobile()){
-      // Mobile: open AMap app directly
       try{
-        openAmapNav(it, { callnative: 1, mode: mapNavMode(options.mode) });
+        if (isIOS()){
+          openAmapIOS(it, options);
+        }else{
+          // Android or others: open AMap app directly
+          openAmapNav(it, { callnative: 1, mode: mapNavMode(options.mode) });
+        }
       }catch (e){
         log("error", "唤起高德失败", errToStr(e));
         alert("唤起高德失败：" + toCNMsg(e));
