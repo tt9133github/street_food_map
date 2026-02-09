@@ -188,7 +188,7 @@
       log("info", "加载高德地图脚本…");
       const s = document.createElement("script");
       s.dataset.amap = "1";
-      s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}&plugin=AMap.Geocoder`;
+      s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}&plugin=AMap.Geocoder,AMap.Geolocation,AMap.Driving,AMap.Walking`;
       s.async = true;
       s.onload = () => { log("info", "高德脚本加载成功"); resolve(true); };
       s.onerror = () => { log("error", "高德脚本加载失败（检查 key / 网络 / 域名白名单）"); resolve(false); };
@@ -228,7 +228,12 @@
     m.on("click", () => {
       const title = (it.name || "(未命名)") + (it.category ? ` / ${it.category}` : "");
       const addr = [it.city, it.address].filter(Boolean).join(" ");
-      const html = `<div style="font-size:13px;"><b>${escapeHtml(title)}</b><br/>${escapeHtml(addr)}</div>`;
+      const navCall = `window.__sfm_nav.openRouteTo(${JSON.stringify(String(it.id))})`;
+      const html = `<div style="font-size:13px;">
+        <b>${escapeHtml(title)}</b><br/>
+        ${escapeHtml(addr)}<br/>
+        <button class="btn nav-btn" style="margin-top:6px;" onclick='${navCall}'>到这里去</button>
+      </div>`;
       const info = new AMap.InfoWindow({ content: html, offset: new AMap.Pixel(0,-30) });
       info.open(map, m.getPosition());
     });
@@ -242,6 +247,152 @@
       if (it.__marker) it.__marker.emit("click", { target: it.__marker });
     }
   }
+
+  /**********************
+   * 4.1) Geolocation + Route Planning (backend)
+   **********************/
+  let geo = null;
+  let drivingSvc = null;
+  let walkingSvc = null;
+
+  async function getCurrentPosition(opts){
+    const options = Object.assign({
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    }, opts || {});
+
+    const ok = await ensureAMapLoaded(false);
+    if (!ok || !window.AMap) throw new Error("AMap not ready");
+
+    if (!geo){
+      geo = new AMap.Geolocation(options);
+    }
+
+    return new Promise((resolve, reject) => {
+      try{
+        geo.getCurrentPosition((status, result) => {
+          if (status === "complete" && result && result.position){
+            resolve({
+              lng: result.position.lng,
+              lat: result.position.lat,
+              raw: result
+            });
+          }else{
+            const msg = (result && (result.message || result.info)) || "geolocation failed";
+            reject(new Error(msg));
+          }
+        });
+      }catch (e){
+        reject(e);
+      }
+    });
+  }
+
+  function getRouteService(mode, renderOnMap){
+    if (mode === "walking"){
+      if (!walkingSvc){
+        walkingSvc = new AMap.Walking({ map: renderOnMap ? map : null });
+      }
+      return walkingSvc;
+    }
+    if (!drivingSvc){
+      drivingSvc = new AMap.Driving({ map: renderOnMap ? map : null });
+    }
+    return drivingSvc;
+  }
+
+  async function planRouteTo(it, opts){
+    if (!it) throw new Error("target item is required");
+    if (it.lng == null || it.lat == null) throw new Error("target has no coordinates");
+
+    const options = Object.assign({
+      mode: "driving",     // "driving" | "walking"
+      from: null,          // {lng,lat} or null to use current position
+      renderOnMap: false
+    }, opts || {});
+
+    const ok = await ensureAMapLoaded(false);
+    if (!ok || !window.AMap) throw new Error("AMap not ready");
+
+    const fromPos = options.from || await getCurrentPosition();
+    const toPos = { lng: it.lng, lat: it.lat };
+    const svc = getRouteService(options.mode, options.renderOnMap);
+
+    return new Promise((resolve, reject) => {
+      svc.search([fromPos.lng, fromPos.lat], [toPos.lng, toPos.lat], (status, result) => {
+        if (status === "complete"){
+          resolve({
+            from: fromPos,
+            to: toPos,
+            mode: options.mode,
+            result
+          });
+        }else{
+          const msg = (result && (result.message || result.info)) || "route planning failed";
+          reject(new Error(msg));
+        }
+      });
+    });
+  }
+
+  function buildAmapNavUri(it, opts){
+    if (!it) throw new Error("target item is required");
+    if (it.lng == null || it.lat == null) throw new Error("target has no coordinates");
+    const options = Object.assign({
+      callnative: 0,       // 0: web, 1: try open app
+      mode: "drive"        // drive | walk | bus | ride
+    }, opts || {});
+    const name = encodeURIComponent(it.name || "target");
+    const location = `${it.lng},${it.lat}`;
+    return `https://uri.amap.com/navigation?to=${location},${name}&mode=${encodeURIComponent(options.mode)}&callnative=${options.callnative}`;
+  }
+
+  function openAmapNav(it, opts){
+    const url = buildAmapNavUri(it, opts);
+    window.open(url, "_blank");
+    return url;
+  }
+
+  async function renderRouteTo(it, opts){
+    if (!it) throw new Error("target item is required");
+    if (!map) initMap();
+    const options = Object.assign({
+      mode: "driving"
+    }, opts || {});
+    const svc = getRouteService(options.mode, true);
+    if (svc && typeof svc.clear === "function"){
+      svc.clear();
+    }
+    const res = await planRouteTo(it, {
+      mode: options.mode,
+      renderOnMap: true
+    });
+    focusItem(it);
+    return res;
+  }
+
+  function openRouteTo(id, opts){
+    const it = allItems.find(x => String(x.id) === String(id));
+    if (!it){
+      log("warn", "导航目标不存在", id);
+      return;
+    }
+    renderRouteTo(it, opts).catch((e) => {
+      log("error", "路线规划失败", errToStr(e));
+      alert("路线规划失败：" + errToStr(e));
+    });
+  }
+
+  // Expose backend helpers for future UI wiring
+  window.__sfm_nav = {
+    getCurrentPosition,
+    planRouteTo,
+    buildAmapNavUri,
+    openAmapNav,
+    renderRouteTo,
+    openRouteTo
+  };
 
   /**********************
    * 5) Data layer: Supabase REST (fallback kb.json) + local editable store
@@ -446,15 +597,26 @@
       const title = escapeHtml(it.name || "(未命名)");
       const cat = it.category ? `<span class="badge">${escapeHtml(it.category)}</span>` : "";
       const addr = escapeHtml([it.city, it.address].filter(Boolean).join(" ")) || "(无地址)";
-      const loc = (it.lng != null && it.lat != null) ? `${Number(it.lng).toFixed(6)}, ${Number(it.lat).toFixed(6)}` : "<span class='warn'>无坐标</span>";
+      const loc = (it.lng != null && it.lat != null) ? "已定位" : "<span class='warn'>无坐标</span>";
       const active = (String(it.id) === String(selectedId)) ? " style='background:#f7f7ff;'" : "";
       return `
         <div class="item" data-id="${escapeHtml(it.id)}"${active}>
           <div class="name">${title}${cat}</div>
           <div class="meta">${addr}<br/>${loc}</div>
+          <div class="row" style="margin-top:6px;">
+            <button class="btn nav-btn" data-id="${escapeHtml(it.id)}">到这里去</button>
+          </div>
         </div>
       `;
     }).join("");
+
+    list.querySelectorAll(".nav-btn").forEach(btn => {
+      btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const id = btn.getAttribute("data-id");
+        openRouteTo(id);
+      });
+    });
 
     list.querySelectorAll(".item").forEach(el => {
       el.addEventListener("click", () => {
@@ -473,7 +635,7 @@
     });
   }
 
-  function applyFilter(opts){
+   function applyFilter(opts){
     const silent = !!(opts && opts.silent);
     const q = (document.getElementById("q").value || "").trim().toLowerCase();
     const cat = (document.getElementById("cat").value || "").trim();

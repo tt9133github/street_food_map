@@ -56,6 +56,20 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
 .btn:hover{background:rgba(255,255,255,.14);}
 .btn.danger{border-color:rgba(255,107,107,.45);}
 .btn.primary{border-color:rgba(99,102,241,.55);}
+
+/* Buttons on light backgrounds (list + map info window) */
+.side .btn,
+.amap-info-content .btn,
+.btn.nav-btn{
+  background:#111;
+  border-color:#111;
+  color:#fff;
+}
+.side .btn:hover,
+.amap-info-content .btn:hover,
+.btn.nav-btn:hover{
+  background:#222;
+}
 .drawer-bd{padding:12px 14px;overflow:auto;flex:1;}
 .sec{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);border-radius:14px;padding:12px;margin-bottom:12px;}
 .sec h3{margin:0 0 8px 0;font-size:14px;}

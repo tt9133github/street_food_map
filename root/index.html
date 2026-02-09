@@ -738,7 +738,7 @@ async function relocalizeItem(id){
               <div class="sub" style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
                 <span class="pill">${esc(cat)}</span>
                 ${pillForItem(it)}
-                ${loc ? `<span class="pill">${esc(loc)}</span>` : ""}
+                ${mode === "kbList" && loc ? `<span class="pill">${esc(loc)}</span>` : ""}
               </div>
               ${it.note ? `<div class="sub" style="margin-top:6px;">备注：${esc(it.note)}</div>` : ""}
             </div>
