@@ -10,11 +10,14 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
   padding:10px 12px;border-bottom:1px solid var(--border);
   position:sticky;top:0;background:var(--bg);z-index:10;
 }
-.topbar input,.topbar select{
+.topbar select,.topbar input{
   padding:8px 10px;border:1px solid #ddd;border-radius:10px;font-size:14px;
   background:#fff;
 }
-.q-wrap{position:relative;flex:1;min-width:140px;}
+.topbar select{
+  min-width:130px;
+}
+.q-wrap{position:relative;flex:1;min-width:180px;}
 .topbar input{width:100%;padding-right:28px;}
 .q-clear{
   position:absolute;right:8px;top:50%;transform:translateY(-50%);

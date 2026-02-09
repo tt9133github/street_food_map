@@ -16,6 +16,8 @@
    **********************/
   const CFG_KEY = "sfm_cfg_v1";
   const DB_KEY  = "sfm_db_v1"; // local editable dataset
+  const SUPABASE_URL = "https://gwwiwhmryyruyxrmvjbm.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3d2l3aG1yeXlydXl4cm12amJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NDA1MDcsImV4cCI6MjA4NjAxNjUwN30.Nl3u335qC5MylCYLjTfTm7vOu4msvl3QjplZuVPqAg4";
 
   /**********************
    * 1) Lightweight logger
@@ -47,21 +49,21 @@
   function toCNMsg(e){
     const raw = errMsg(e);
     const msg = (raw || "").toLowerCase();
-    if (!msg) return "未知错误";
+    if (!msg) return "Unknown error";
     if (msg.includes("permission") || msg.includes("denied") || msg.includes("secure origin")){
-      return "定位被拒绝或当前页面非 HTTPS，无法获取当前位置";
+      return "Location permission denied, or the page is not HTTPS, so location cannot be obtained";
     }
     if (msg.includes("timeout")){
-      return "定位超时，请检查网络或稍后重试";
+      return "Location timed out. Please check your network and try again";
     }
     if (msg.includes("amap not ready")){
-      return "高德地图未就绪，请检查 Key 或网络";
+      return "AMap is not ready. Check your key or network";
     }
     if (msg.includes("no coordinates")){
-      return "该店铺没有坐标，无法规划路线";
+      return "This place has no coordinates, route planning is not possible";
     }
     if (msg.includes("invalid_userkey") || msg.includes("key")){
-      return "高德 Key 无效或权限不足";
+      return "AMap key is invalid or lacks permission";
     }
     return raw;
   }
@@ -99,19 +101,19 @@
   logLevelSel.addEventListener("change", () => {
     currentLevel = logLevelSel.value;
     localStorage.setItem("sfm_log_level", currentLevel);
-    log("info", "日志级别切换", currentLevel);
+    log("info", "Log level changed", currentLevel);
   });
   document.getElementById("btnClearLog").addEventListener("click", () => {
     document.getElementById("logs").textContent = "";
-    log("info", "日志已清空");
+    log("info", "Logs cleared");
   });
   document.getElementById("btnCopyLog").addEventListener("click", async () => {
     const text = document.getElementById("logs").textContent || "";
     try{
       await navigator.clipboard.writeText(text);
-      log("info", "日志已复制到剪贴板");
+      log("info", "Logs copied to clipboard");
     }catch(e){
-      log("warn", "复制失败（浏览器限制）", errToStr(e));
+      log("warn", "Copy failed (browser restriction)", errToStr(e));
     }
   });
 
@@ -142,45 +144,8 @@
     return next;
   }
 
-  const sbUrlEl = document.getElementById("sbUrl");
-  const sbAnonEl = document.getElementById("sbAnon");
-  const sbHintEl = document.getElementById("sbHint");
-  const amapKeyEl = document.getElementById("amapKey");
-  const amapHintEl = document.getElementById("amapHint");
-  const dataModeEl = document.getElementById("dataMode");
+  // Supabase config is fixed in code; no settings UI.
 
-  function renderCfgToUI(){
-    const cfg = loadCfg();
-    sbUrlEl.value = cfg.supabaseUrl || "";
-    sbAnonEl.value = cfg.supabaseAnonKey || "";
-    amapKeyEl.value = cfg.amapKey || "";
-    renderHints();
-  }
-
-  function renderHints(){
-    const cfg = loadCfg();
-    const urlOk = !!cfg.supabaseUrl && cfg.supabaseUrl.includes(".supabase.co");
-    const anonOk = !!cfg.supabaseAnonKey && cfg.supabaseAnonKey.startsWith("eyJ");
-    sbHintEl.innerHTML =
-      `URL：${urlOk ? "OK" : "<span class='err'>缺失/不正确</span>"}；` +
-      `anon key：${anonOk ? "OK" : "<span class='err'>请填 anon public key（eyJ...）</span>"}`;
-    amapHintEl.innerHTML =
-      `高德 Key：${cfg.amapKey ? "已配置" : "<span class='err'>未配置</span>"}`;
-  }
-
-  document.getElementById("btnSaveCfg").addEventListener("click", () => {
-    const url = (sbUrlEl.value || "").trim();
-    const anon = (sbAnonEl.value || "").trim();
-    saveCfg({ supabaseUrl: url, supabaseAnonKey: anon });
-    renderHints();
-    log("info", "Supabase 配置已保存", url);
-  });
-  document.getElementById("btnSaveAmap").addEventListener("click", () => {
-    const key = (amapKeyEl.value || "").trim();
-    saveCfg({ amapKey: key });
-    renderHints();
-    log("info", "高德 Key 已保存");
-  });
 
   /**********************
    * 4) AMap dynamic loader + map helpers
@@ -188,6 +153,7 @@
   let map = null;
   let markers = [];
   let amapLoading = null;
+  let userMarker = null;
 
   function removeOldAMapScript(){
     const olds = document.querySelectorAll('script[data-amap="1"]');
@@ -201,7 +167,7 @@
     const key = cfg.amapKey;
     const scode = (cfg.amapSecurityJsCode || "").trim();
     if (!key){
-      log("error", "未配置高德 Key，地图无法加载。请在设置中填入。");
+      log("error", "AMap key not configured. Map cannot load. Please set it in Settings.");
       return false;
     }
     if (!forceReload && window.AMap){
@@ -214,14 +180,14 @@
     amapLoading = new Promise((resolve) => {
       if (forceReload) removeOldAMapScript();
 
-      log("info", "加载高德地图脚本…");
+      log("info", "Loading AMap script...");
       const s = document.createElement("script");
       s.dataset.amap = "1";
       const scodeParam = scode ? `&securityjscode=${encodeURIComponent(scode)}` : "";
       s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}${scodeParam}&plugin=AMap.Geocoder,AMap.Geolocation,AMap.Driving,AMap.Walking`;
       s.async = true;
-      s.onload = () => { log("info", "高德脚本加载成功"); resolve(true); };
-      s.onerror = () => { log("error", "高德脚本加载失败（检查 key / 网络 / 域名白名单）"); resolve(false); };
+      s.onload = () => { log("info", "AMap script loaded"); resolve(true); };
+      s.onerror = () => { log("error", "AMap script load failed (check key / network / domain whitelist)"); resolve(false); };
       document.head.appendChild(s);
     });
 
@@ -230,7 +196,7 @@
 
   function initMap(){
     if (!window.AMap){
-      log("error", "AMap 未就绪，initMap 取消");
+      log("error", "AMap not ready, initMap cancelled");
       return;
     }
     const center = [104.0668, 30.5728];
@@ -239,7 +205,7 @@
       center,
       viewMode: "2D"
     });
-    log("info", "地图初始化完成", `center=${center.join(",")}`);
+    log("info", "Map initialized", `center=${center.join(",")}`);
   }
 
   function clearMarkers(){
@@ -252,17 +218,17 @@
     if (it.lng == null || it.lat == null) return;
     const m = new AMap.Marker({
       position: [it.lng, it.lat],
-      title: it.name || "(未命名)"
+      title: it.name || "(Unnamed)"
     });
     m.setMap(map);
     m.on("click", () => {
-      const title = (it.name || "(未命名)") + (it.category ? ` / ${it.category}` : "");
+      const title = (it.name || "(Unnamed)") + (it.category ? ` / ${it.category}` : "");
       const addr = [it.city, it.address].filter(Boolean).join(" ");
       const navCall = `window.__sfm_nav.openRouteTo(${JSON.stringify(String(it.id))})`;
       const html = `<div style="font-size:13px;">
         <b>${escapeHtml(title)}</b><br/>
         ${escapeHtml(addr)}<br/>
-        <button class="btn nav-btn" style="margin-top:6px;" onclick='${navCall}'>到这里去</button>
+        <button class="btn nav-btn" style="margin-top:6px;" onclick='${navCall}'>出发</button>
       </div>`;
       const info = new AMap.InfoWindow({ content: html, offset: new AMap.Pixel(0,-30) });
       info.open(map, m.getPosition());
@@ -275,6 +241,22 @@
     if (it.lng != null && it.lat != null){
       map.setZoomAndCenter(16, [it.lng, it.lat], true);
       if (it.__marker) it.__marker.emit("click", { target: it.__marker });
+    }
+  }
+
+  function setUserMarker(pos){
+    if (!map || !pos) return;
+    const lnglat = [pos.lng, pos.lat];
+    if (!userMarker){
+      userMarker = new AMap.Marker({
+        position: lnglat,
+        title: "Current Location",
+        zIndex: 200,
+        offset: new AMap.Pixel(0, 0)
+      });
+      userMarker.setMap(map);
+    }else{
+      userMarker.setPosition(lnglat);
     }
   }
 
@@ -387,7 +369,7 @@
       info: data && (data.info || data.infocode),
       raw: data || null
     };
-    log("error", "路线规划失败细节", JSON.stringify(extra));
+    log("error", "Route planning failed (details)", JSON.stringify(extra));
     throw new Error((data && (data.info || data.infocode)) || "route planning failed");
   }
 
@@ -433,7 +415,7 @@
     }, opts || {});
     const name = encodeURIComponent(it.name || "destination");
     const style = options.mode === "walking" ? 2 : 2;
-    // 官方 iOS 导航：iosamap://navi?sourceApplication=...&poiname=...&lat=...&lon=...&dev=0&style=2
+    // Official iOS navigation scheme: iosamap://navi?sourceApplication=...&poiname=...&lat=...&lon=...&dev=0&style=2
     return `iosamap://navi?sourceApplication=street_food_map&poiname=${name}&lat=${encodeURIComponent(it.lat)}&lon=${encodeURIComponent(it.lng)}&dev=0&style=${style}`;
   }
 
@@ -516,7 +498,7 @@
   function openRouteTo(id, opts){
     const it = allItems.find(x => String(x.id) === String(id));
     if (!it){
-      log("warn", "导航目标不存在", id);
+      log("warn", "Navigation target not found", id);
       return;
     }
     const options = Object.assign({ mode: "driving" }, opts || {});
@@ -528,14 +510,14 @@
           openAmapAndroid(it, options);
         }
       }catch (e){
-        log("error", "唤起高德失败", errToStr(e));
-        alert("唤起高德失败：" + toCNMsg(e));
+        log("error", "Failed to open AMap", errToStr(e));
+        alert("Failed to open AMap: " + toCNMsg(e));
       }
       return;
     }
     renderRouteTo(it, options).catch((e) => {
-      log("error", "路线规划失败", errToStr(e));
-      alert("路线规划失败：" + toCNMsg(e));
+      log("error", "Route planning failed", errToStr(e));
+      alert("Route planning failed: " + toCNMsg(e));
     });
   }
 
@@ -605,56 +587,78 @@
   }
 
   async function loadFromSupabase(){
-    const cfg = loadCfg();
-    const base = (cfg.supabaseUrl || "").trim();
-    const anon = (cfg.supabaseAnonKey || "").trim();
+    const base = SUPABASE_URL;
+    const anon = SUPABASE_ANON_KEY;
 
     if (!base || !base.includes(".supabase.co")){
-      log("warn", "Supabase URL 未配置/不正确，跳过远程加载");
+      log("warn", "Supabase URL missing/invalid, skip remote load");
       return null;
     }
     if (!anon || !anon.startsWith("eyJ")){
-      log("warn", "Supabase anon key 未配置/不正确（必须 anon public key: eyJ...），跳过远程加载");
+      log("warn", "Supabase anon key missing/invalid (must be anon public key: eyJ...), skip remote load");
       return null;
     }
 
     const url = `${base.replace(/\/$/,"")}/rest/v1/places?select=*`;
-    log("info", "开始远程拉取 places", url);
+    log("info", "Start remote fetch: places", url);
 
     const t0 = performance.now();
     const res = await fetch(url, {
       headers: { apikey: anon, Authorization: `Bearer ${anon}` },
       cache: "no-store"
     }).catch(e => {
-      log("error", "fetch 失败", errToStr(e));
+      log("error", "Fetch failed", errToStr(e));
       return null;
     });
     if (!res) return null;
 
     const t1 = performance.now();
-    log("info", "远程请求完成", `status=${res.status} cost=${Math.round(t1-t0)}ms`);
+    log("info", "Remote request completed", `status=${res.status} cost=${Math.round(t1-t0)}ms`);
 
     if (!res.ok){
       const txt = await res.text().catch(()=> "");
-      log("error", "远程返回非 2xx", txt || `HTTP ${res.status}`);
+      log("error", "Remote response not 2xx", txt || `HTTP ${res.status}`);
       return null;
     }
 
     const data = await res.json().catch(e => {
-      log("error", "JSON 解析失败", errToStr(e));
+      log("error", "JSON parse failed", errToStr(e));
       return null;
     });
     if (!Array.isArray(data)){
-      log("error", "远程返回不是数组", JSON.stringify(data).slice(0, 500));
+      log("error", "Remote response is not an array", JSON.stringify(data).slice(0, 500));
       return null;
     }
 
-    log("info", "远程数据行数", String(data.length));
+    log("info", "Remote data count", String(data.length));
     return data.map(normRow);
   }
 
+  async function supaRequest(method, path, body){
+    const base = SUPABASE_URL.replace(/\/$/,"");
+    const anon = SUPABASE_ANON_KEY;
+    const url = `${base}${path}`;
+    const headers = {
+      apikey: anon,
+      Authorization: `Bearer ${anon}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation"
+    };
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined
+    });
+    if (!res.ok){
+      const txt = await res.text().catch(()=> "");
+      throw new Error(txt || `HTTP ${res.status}`);
+    }
+    const data = await res.json().catch(()=> null);
+    return data;
+  }
+
   async function loadFromLocalKb(){
-    log("info", "回退读取本地 kb.json");
+    log("info", "Fallback to local kb.json");
     try{
       const r = await fetch("./kb.json", { cache: "no-store" });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -670,46 +674,37 @@
         lat: it?.location?.lat ?? null,
         updatedAt: it.updatedAt || null
       }));
-      log("info", "本地数据行数", String(mapped.length));
+      log("info", "Local data count", String(mapped.length));
       return mapped.map(normRow);
     }catch(e){
-      log("error", "本地 kb.json 读取失败", errToStr(e));
+      log("error", "Local kb.json read failed", errToStr(e));
       return [];
     }
   }
 
-  function setDataMode(text){
-    dataModeEl.textContent = text;
-  }
 
   async function bootLoadData(opts){
-    const forceRemote = !!(opts && opts.forceRemote);
     const preferLocal = !!(opts && opts.preferLocal);
 
-    if (!forceRemote){
+    if (preferLocal){
       const local = loadLocalDB();
       if (local && Array.isArray(local.items) && local.items.length){
         allItems = local.items;
-        setDataMode("数据：本地编辑（已保存）");
-        log("info", "使用本地编辑数据", `count=${allItems.length}`);
+        log("info", "Using local edited data", `count=${allItems.length}`);
+        renderCity(allItems);
         renderCat(allItems);
         applyFilter();
         syncEditorSelection(null);
         return;
       }
-    }
-
-    if (preferLocal){
-      setDataMode("数据：本地编辑（空）");
-      log("warn", "本地编辑数据为空：请先重新加载远程或导入静态 kb.json 再编辑");
+      log("warn", "Local edited data is empty: please reload remote or import kb.json before editing");
     }
 
     const remote = await loadFromSupabase();
     allItems = remote || await loadFromLocalKb();
 
     saveLocalDB(allItems, remote ? "supabase" : "kb.json");
-    setDataMode(remote ? "数据：Supabase（已拉取→已缓存本地）" : "数据：kb.json（已缓存本地）");
-
+    renderCity(allItems);
     renderCat(allItems);
     applyFilter();
     syncEditorSelection(null);
@@ -727,10 +722,33 @@
       .replaceAll("'","&#39;");
   }
 
-  function renderCat(items){
-    const sel = document.getElementById("cat");
+  function renderCity(items){
+    const sel = document.getElementById("city");
+    if (!sel) return;
     const counts = new Map();
     for (const it of items || []) {
+      const c = (it.city || "").trim();
+      if (!c) continue;
+      counts.set(c, (counts.get(c) || 0) + 1);
+    }
+    const cities = Array.from(counts.entries())
+      .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0], "zh"));
+    sel.innerHTML =
+      `<option value="">All cities (${items?.length || 0})</option>` +
+      cities.map(([c, n]) => `<option value="${escapeHtml(c)}">${escapeHtml(c)} (${n})</option>`).join("");
+    // default Chengdu if exists
+    const defaultCity = "成都";
+    if (cities.some(([c]) => c === defaultCity)){
+      sel.value = defaultCity;
+    }
+  }
+
+  function renderCat(items){
+    const sel = document.getElementById("cat");
+    const city = (document.getElementById("city")?.value || "").trim();
+    const list = city ? (items || []).filter(it => (it.city || "").trim() === city) : (items || []);
+    const counts = new Map();
+    for (const it of list) {
       const c = (it.category || "").trim();
       if (!c) continue;
       counts.set(c, (counts.get(c) || 0) + 1);
@@ -738,29 +756,30 @@
     const cats = Array.from(counts.entries())
       .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0], "zh"));
     sel.innerHTML =
-      `<option value="">全部品类 (${items?.length || 0})</option>` +
+      `<option value="">All categories (${list.length || 0})</option>` +
       cats.map(([c, n]) => `<option value="${escapeHtml(c)}">${escapeHtml(c)} (${n})</option>`).join("");
   }
 
   function renderList(items){
     const list = document.getElementById("list");
     if (!items.length){
-      list.innerHTML = `<div class="item"><div class="name">没有数据</div><div class="meta">请检查设置里的 Supabase Key / RLS / 网络</div></div>`;
+      list.innerHTML = `<div class="item"><div class="name">No data</div><div class="meta">Check settings: Supabase Key / RLS / Network</div></div>`;
       return;
     }
     list.innerHTML = items.map(it => {
-      const title = escapeHtml(it.name || "(未命名)");
+      const title = escapeHtml(it.name || "(Unnamed)");
       const cat = it.category ? `<span class="badge">${escapeHtml(it.category)}</span>` : "";
-      const addr = escapeHtml([it.city, it.address].filter(Boolean).join(" ")) || "(无地址)";
-      const loc = (it.lng != null && it.lat != null) ? "已定位" : "<span class='warn'>无坐标</span>";
+      const addr = escapeHtml([it.city, it.address].filter(Boolean).join(" ")) || "(No address)";
+      const hasCoords = (it.lng != null && it.lat != null);
+      const loc = hasCoords ? "Located" : "<span class='warn'>No coordinates</span>";
       const active = (String(it.id) === String(selectedId)) ? " style='background:#f7f7ff;'" : "";
       return `
         <div class="item" data-id="${escapeHtml(it.id)}"${active}>
           <div class="name">${title}${cat}</div>
           <div class="meta">${addr}<br/>${loc}</div>
-          <div class="row" style="margin-top:6px;">
-            <button class="btn nav-btn" data-id="${escapeHtml(it.id)}">到这里去</button>
-          </div>
+          ${hasCoords ? `<div class="row" style="margin-top:6px;">
+            <button class="btn nav-btn" data-id="${escapeHtml(it.id)}">出发</button>
+          </div>` : ""}
         </div>
       `;
     }).join("");
@@ -778,14 +797,14 @@
         const id = el.getAttribute("data-id");
         const it = allItems.find(x => String(x.id) === String(id));
         if (!it){
-          log("warn", "点击项不存在", id);
+          log("warn", "Clicked item not found", id);
           return;
         }
         selectedId = String(it.id);
         syncEditorSelection(selectedId);
         renderList(applyFilter({silent:true}));
         focusItem(it);
-        log("info", "定位到条目", `${it.id} ${it.name}`);
+        log("info", "Focused item", `${it.id} ${it.name}`);
       });
     });
   }
@@ -794,8 +813,10 @@
     const silent = !!(opts && opts.silent);
     const q = (document.getElementById("q").value || "").trim().toLowerCase();
     const cat = (document.getElementById("cat").value || "").trim();
+    const city = (document.getElementById("city")?.value || "").trim();
 
     const filtered = allItems.filter(it => {
+      if (city && it.city !== city) return false;
       if (cat && it.category !== cat) return false;
       if (!q) return true;
       const hay = `${it.name} ${it.city} ${it.address} ${it.category}`.toLowerCase();
@@ -807,7 +828,7 @@
     renderList(filtered);
 
     if (!silent){
-      log("debug", "过滤完成", `q="${q}", cat="${cat}", count=${filtered.length}`);
+      log("debug", "Filter done", `q=\"${q}\", cat=\"${cat}\", count=${filtered.length}`);
     }
     return filtered;
   }
@@ -835,6 +856,15 @@
   }
   syncQClear();
   document.getElementById("cat").addEventListener("change", () => applyFilter());
+  document.getElementById("city")?.addEventListener("change", () => {
+    // Update category list based on selected city
+    renderCat(allItems);
+    // Reset category if it no longer exists
+    if (!(document.getElementById("cat")?.value || "")) {
+      // already reset
+    }
+    applyFilter();
+  });
 
   /**********************
    * 7) Manage panel (CRUD + relocate + export)
@@ -874,15 +904,16 @@
     const it = selectedId ? allItems.find(x => String(x.id) === String(selectedId)) : null;
     if (it){
       setFormFromItem(it);
-      setEditHint(`当前编辑：<b>${escapeHtml(it.name || "(未命名)")}</b>（id=${escapeHtml(it.id)}）`);
+      setEditHint(`Editing: <b>${escapeHtml(it.name || "(Unnamed)")}</b> (id=${escapeHtml(it.id)})`);
     }else{
       setFormFromItem({name:"",category:"",city:"",address:"",lng:"",lat:""});
-      setEditHint("当前编辑：<span class='warn'>未选择</span>（点列表条目进入编辑，或点“新增”）");
+      setEditHint("Editing: <span class='warn'>None selected</span> (click a list item to edit, or click New)");
     }
   }
 
   function upsertLocalAndRerender(){
     saveLocalDB(allItems, "edited");
+    renderCity(allItems);
     renderCat(allItems);
     applyFilter();
   }
@@ -890,125 +921,161 @@
   document.getElementById("btnNew").addEventListener("click", () => {
     selectedId = null;
     syncEditorSelection(null);
-    setEditHint("新增模式：填写后点“保存”");
+    setEditHint("New item mode: fill in then click Save");
     fName.focus();
   });
 
-  document.getElementById("btnSaveItem").addEventListener("click", () => {
+  document.getElementById("btnSaveItem").addEventListener("click", async () => {
     const form = getEditingItemFromForm();
     if (!form.name){
-      setEditHint("<span class='err'>店名必填</span>");
-      log("warn", "保存失败：店名必填");
+      setEditHint("<span class='err'>Name is required</span>");
+      log("warn", "Save failed: name required");
       return;
     }
     const lng = form.lng === "" ? null : Number(form.lng);
     const lat = form.lat === "" ? null : Number(form.lat);
     if ((form.lng !== "" && Number.isNaN(lng)) || (form.lat !== "" && Number.isNaN(lat))){
-      setEditHint("<span class='err'>lng/lat 必须是数字或留空</span>");
-      log("warn", "保存失败：lng/lat 非数字");
+      setEditHint("<span class='err'>lng/lat must be numbers or empty</span>");
+      log("warn", "Save failed: lng/lat invalid");
       return;
     }
 
-    if (selectedId){
-      const idx = allItems.findIndex(x => String(x.id) === String(selectedId));
-      if (idx < 0){
-        setEditHint("<span class='err'>未找到要编辑的条目</span>");
-        return;
+    try{
+      if (selectedId){
+        const idx = allItems.findIndex(x => String(x.id) === String(selectedId));
+        if (idx < 0){
+          setEditHint("<span class='err'>Item to edit not found</span>");
+          return;
+        }
+        const payload = {
+          name: form.name,
+          category: form.category,
+          city: form.city,
+          address: form.address,
+          lng, lat,
+          updated_at: new Date().toISOString()
+        };
+        const data = await supaRequest(
+          "PATCH",
+          `/rest/v1/places?id=eq.${encodeURIComponent(selectedId)}`,
+          payload
+        );
+        const updated = Array.isArray(data) && data[0] ? normRow(data[0]) : { ...allItems[idx], ...payload };
+        allItems[idx] = updated;
+        log("info", "Saved item", `${allItems[idx].id} ${allItems[idx].name}`);
+      }else{
+        const it = {
+          id: crypto.randomUUID(),
+          name: form.name, category: form.category, city: form.city, address: form.address,
+          lng, lat, updated_at: new Date().toISOString()
+        };
+        const data = await supaRequest("POST", "/rest/v1/places", [it]);
+        const created = Array.isArray(data) && data[0] ? normRow(data[0]) : normRow(it);
+        allItems.unshift(created);
+        selectedId = String(created.id);
+        log("info", "Added item", `${created.id} ${created.name}`);
       }
-      allItems[idx] = { ...allItems[idx],
-        name: form.name, category: form.category, city: form.city, address: form.address,
-        lng, lat, updatedAt: new Date().toISOString()
-      };
-      log("info", "已保存编辑", `${allItems[idx].id} ${allItems[idx].name}`);
-    }else{
-      const it = {
-        id: crypto.randomUUID(),
-        name: form.name, category: form.category, city: form.city, address: form.address,
-        lng, lat, updatedAt: new Date().toISOString()
-      };
-      allItems.unshift(it);
-      selectedId = String(it.id);
-      log("info", "已新增条目", `${it.id} ${it.name}`);
+
+      upsertLocalAndRerender();
+      syncEditorSelection(selectedId);
+      const it2 = selectedId ? allItems.find(x => String(x.id) === String(selectedId)) : null;
+      if (it2) focusItem(it2);
+      setEditHint("Saved to database");
+    }catch (e){
+      log("error", "Save to database failed", errToStr(e));
+      setEditHint(`<span class='err'>Save failed</span>: ${escapeHtml(errToStr(e)).slice(0,200)}`);
     }
 
-    upsertLocalAndRerender();
-    syncEditorSelection(selectedId);
-
-    const it2 = selectedId ? allItems.find(x => String(x.id) === String(selectedId)) : null;
-    if (it2) focusItem(it2);
   });
 
-  document.getElementById("btnDelete").addEventListener("click", () => {
+  document.getElementById("btnDelete").addEventListener("click", async () => {
     if (!selectedId){
-      setEditHint("<span class='warn'>未选择条目，无法删除</span>");
+      setEditHint("<span class='warn'>No item selected, cannot delete</span>");
       return;
     }
     const it = allItems.find(x => String(x.id) === String(selectedId));
     if (!it) return;
 
-    const ok = confirm(`确认删除：${it.name || "(未命名)"} ?`);
+    const ok = confirm(`Delete ${it.name || "(Unnamed)"}?`);
     if (!ok) return;
 
-    allItems = allItems.filter(x => String(x.id) !== String(selectedId));
-    log("warn", "已删除条目", `${selectedId}`);
-    selectedId = null;
-    upsertLocalAndRerender();
-    syncEditorSelection(null);
+    try{
+      await supaRequest("DELETE", `/rest/v1/places?id=eq.${encodeURIComponent(selectedId)}`);
+      allItems = allItems.filter(x => String(x.id) !== String(selectedId));
+      log("warn", "Deleted item", `${selectedId}`);
+      selectedId = null;
+      upsertLocalAndRerender();
+      syncEditorSelection(null);
+      setEditHint("Deleted from database");
+    }catch (e){
+      log("error", "Delete failed", errToStr(e));
+      setEditHint(`<span class='err'>Delete failed</span>: ${escapeHtml(errToStr(e)).slice(0,200)}`);
+    }
   });
 
   async function geocodeAddress(fullAddr){
-    if (!window.AMap) throw new Error("AMap 未就绪");
-    return new Promise((resolve, reject) => {
-      try{
-        const geocoder = new AMap.Geocoder({ city: "全国" });
-        geocoder.getLocation(fullAddr, (status, result) => {
-          if (status === "complete" && result && result.geocodes && result.geocodes.length){
-            const loc = result.geocodes[0].location;
-            resolve({ lng: loc.lng, lat: loc.lat });
-          }else{
-            reject(new Error("地理编码失败：" + (result?.info || status || "unknown")));
-          }
-        });
-      }catch(e){
-        reject(e);
-      }
+    const cfg = loadCfg();
+    const restKey = (cfg.amapRestKey || "").trim();
+    if (!restKey) throw new Error("AMap REST key missing");
+    const params = new URLSearchParams({
+      key: restKey,
+      address: fullAddr || "",
+      city: "Nationwide"
     });
+    const url = `https://restapi.amap.com/v3/geocode/geo?${params.toString()}`;
+    const res = await fetch(url);
+    const data = await res.json().catch(() => ({}));
+    if (data && String(data.status) === "1" && Array.isArray(data.geocodes) && data.geocodes.length){
+      const loc = data.geocodes[0].location;
+      const [lng, lat] = (loc || "").split(",").map(Number);
+      if (Number.isFinite(lng) && Number.isFinite(lat)){
+        return { lng, lat };
+      }
+    }
+    throw new Error("Geocoding failed: " + (data.info || data.infocode || "unknown"));
   }
 
   document.getElementById("btnRelocate").addEventListener("click", async () => {
     try{
       if (!selectedId){
-        setEditHint("<span class='warn'>请先在列表选择一条，再重新定位</span>");
+        setEditHint("<span class='warn'>Select a list item first, then relocate</span>");
         return;
       }
       const idx = allItems.findIndex(x => String(x.id) === String(selectedId));
       if (idx < 0){
-        setEditHint("<span class='err'>未找到该条目</span>");
+        setEditHint("<span class='err'>Item not found</span>");
         return;
       }
       const it = allItems[idx];
       const addr = [it.city, it.address].filter(Boolean).join(" ").trim();
       if (!addr){
-        setEditHint("<span class='err'>城市/地址为空，无法定位</span>");
+        setEditHint("<span class='err'>City/address is empty, cannot locate</span>");
         return;
       }
       if (!window.AMap){
-        setEditHint("<span class='err'>地图未加载（AMap 未就绪）</span>");
+        setEditHint("<span class='err'>Map not loaded (AMap not ready)</span>");
         return;
       }
 
-      setEditHint("正在定位…");
+      setEditHint("Locating...");
       const loc = await geocodeAddress(addr);
-      allItems[idx] = { ...it, lng: loc.lng, lat: loc.lat, updatedAt: new Date().toISOString() };
+      const payload = { lng: loc.lng, lat: loc.lat, updated_at: new Date().toISOString() };
+      // update database first
+      await supaRequest(
+        "PATCH",
+        `/rest/v1/places?id=eq.${encodeURIComponent(it.id)}`,
+        payload
+      );
+      allItems[idx] = { ...it, ...payload };
       upsertLocalAndRerender();
       syncEditorSelection(selectedId);
       const it2 = allItems[idx];
       focusItem(it2);
-      log("info", "重新定位成功", `${it2.name} @ ${loc.lng},${loc.lat}`);
-      setEditHint(`重新定位成功：<b>${escapeHtml(it2.name)}</b>`);
+      log("info", "Relocate succeeded", `${it2.name} @ ${loc.lng},${loc.lat}`);
+      setEditHint(`Relocated: <b>${escapeHtml(it2.name)}</b>`);
     }catch(e){
-      log("error", "重新定位失败", errToStr(e));
-      setEditHint(`<span class='err'>重新定位失败</span>：${escapeHtml(errToStr(e)).slice(0,200)}`);
+      log("error", "Relocate failed", errToStr(e));
+      setEditHint(`<span class='err'>Relocate failed</span>: ${escapeHtml(errToStr(e)).slice(0,200)}`);
     }
   });
 
@@ -1045,67 +1112,86 @@
   document.getElementById("btnExport").addEventListener("click", () => {
     const text = refreshExportBox();
     downloadText("kb.json", text);
-    log("info", "已导出 kb.json（下载）");
+    log("info", "Exported kb.json (download)");
   });
   document.getElementById("btnCopyExport").addEventListener("click", async () => {
     const text = refreshExportBox();
     try{
       await navigator.clipboard.writeText(text);
-      log("info", "已复制导出 JSON");
-      setEditHint("已复制导出 JSON（可直接替换仓库 kb.json）");
+      log("info", "Logs copied to clipboard");
+      setEditHint("Export JSON copied (replace repo kb.json)");
     }catch(e){
-      log("warn", "复制导出 JSON 失败（浏览器限制）", errToStr(e));
-      setEditHint("<span class='warn'>复制失败（浏览器限制）</span>：你可以手动选中下方文本复制");
+      log("warn", "Copy failed (browser restriction)", errToStr(e));
+      setEditHint("<span class='warn'>Copy failed (browser restriction)</span>: you can manually select and copy the text below");
     }
   });
 
   document.getElementById("btnClearLocal").addEventListener("click", () => {
-    const ok = confirm("确认清空本地编辑数据？清空后将回到远程/静态数据。");
+    const ok = confirm("Clear local edited data? After clearing, it will revert to remote/static data.");
     if (!ok) return;
     clearLocalDB();
     selectedId = null;
     exportBox.value = "";
-    log("warn", "已清空本地编辑数据");
+    log("warn", "Local edited data cleared");
     bootLoadData({ forceRemote: true });
   });
 
   /**********************
    * 8) Other buttons
    **********************/
-  document.getElementById("btnReload").addEventListener("click", () => {
-    closeDrawer();
-    bootLoadData({ forceRemote: true });
-  });
-  document.getElementById("btnUseLocal").addEventListener("click", () => {
-    closeDrawer();
-    bootLoadData({ preferLocal: true });
-  });
-  document.getElementById("btnReloadMap").addEventListener("click", async () => {
-    closeDrawer();
-    const ok = await ensureAMapLoaded(true);
-    if (ok){
-      initMap();
-      applyFilter();
-    }
-  });
+  const btnReload = document.getElementById("btnReload");
+  if (btnReload){
+    btnReload.addEventListener("click", () => {
+      closeDrawer();
+      bootLoadData({ forceRemote: true });
+    });
+  }
+  const btnUseLocal = document.getElementById("btnUseLocal");
+  if (btnUseLocal){
+    btnUseLocal.addEventListener("click", () => {
+      closeDrawer();
+      bootLoadData({ preferLocal: true });
+    });
+  }
+  const btnReloadMap = document.getElementById("btnReloadMap");
+  if (btnReloadMap){
+    btnReloadMap.addEventListener("click", async () => {
+      closeDrawer();
+      const ok = await ensureAMapLoaded(true);
+      if (ok){
+        initMap();
+        applyFilter();
+      }
+    });
+  }
 
   /**********************
    * 9) Boot
    **********************/
   (async function main(){
-    renderCfgToUI();
-    renderHints();
+    // No settings UI to render for Supabase
 
-    log("info", "页面启动");
+    log("info", "Page started");
 
     const ok = await ensureAMapLoaded(false);
     if (ok){
       initMap();
     }else{
-      log("warn", "地图未加载成功，但列表仍可用。请在设置中检查高德 Key。");
+      log("warn", "Map failed to load, but the list is still available. Check the AMap key in Settings.");
     }
 
-    await bootLoadData({ forceRemote: false });
+    // Mobile: auto locate and show current position
+    try{
+      if (isMobile()){
+        const pos = await getCurrentPosition();
+        setUserMarker(pos);
+        if (map) map.setZoomAndCenter(14, [pos.lng, pos.lat], true);
+      }
+    }catch (e){
+      log("warn", "Auto locate failed", errToStr(e));
+    }
+
+    await bootLoadData({ forceRemote: true });
     syncEditorSelection(null);
     refreshExportBox();
   })();
