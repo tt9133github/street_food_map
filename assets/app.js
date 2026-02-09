@@ -247,13 +247,18 @@
   function setUserMarker(pos){
     if (!map || !pos) return;
     const lnglat = [pos.lng, pos.lat];
+    const icon = new AMap.Icon({
+      image: "https://webapi.amap.com/theme/v1.3/markers/b/mark_rs.png",
+      // size: new AMap.Size(24, 24),
+      // imageSize: new AMap.Size(24, 24)
+    });
     if (!userMarker){
       userMarker = new AMap.Marker({
         position: lnglat,
         title: "Current Location",
-        zIndex: 200,
-        offset: new AMap.Pixel(-12, -24),
-        content: "<div style=\"width:18px;height:18px;border-radius:50%;background:#ef4444;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.25);\"></div>"
+        icon
+        // zIndex: 200,
+        // offset: new AMap.Pixel(-12, -24),
       });
       userMarker.setMap(map);
     }else{
