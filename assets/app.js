@@ -1142,16 +1142,6 @@
     }
   });
 
-  document.getElementById("btnClearLocal").addEventListener("click", () => {
-    const ok = confirm("Clear local edited data? After clearing, it will revert to remote/static data.");
-    if (!ok) return;
-    clearLocalDB();
-    selectedId = null;
-    exportBox.value = "";
-    log("warn", "Local edited data cleared");
-    bootLoadData({ forceRemote: true });
-  });
-
   /**********************
    * 8) Other buttons
    **********************/
