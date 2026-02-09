@@ -122,7 +122,8 @@
     supabaseUrl: "https://gwwiwhmryyruyxrmvjbm.supabase.co",
     supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3d2l3aG1yeXlydXl4cm12amJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NDA1MDcsImV4cCI6MjA4NjAxNjUwN30.Nl3u335qC5MylCYLjTfTm7vOu4msvl3QjplZuVPqAg4",
     amapKey: "02cb6240c341113e242b757c9c31f120",
-    amapSecurityJsCode: "65611fe43ded9c43124b30e1b29cb7ff"
+    amapSecurityJsCode: "65611fe43ded9c43124b30e1b29cb7ff",
+    amapRestKey: "6beb081c646f5b3396228c8131d39025"
   };
 
   function loadCfg() {
@@ -198,6 +199,7 @@
   async function ensureAMapLoaded(forceReload=false){
     const cfg = loadCfg();
     const key = cfg.amapKey;
+    const scode = (cfg.amapSecurityJsCode || "").trim();
     if (!key){
       log("error", "未配置高德 Key，地图无法加载。请在设置中填入。");
       return false;
@@ -215,7 +217,8 @@
       log("info", "加载高德地图脚本…");
       const s = document.createElement("script");
       s.dataset.amap = "1";
-      s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}&plugin=AMap.Geocoder,AMap.Geolocation,AMap.Driving,AMap.Walking`;
+      const scodeParam = scode ? `&securityjscode=${encodeURIComponent(scode)}` : "";
+      s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}${scodeParam}&plugin=AMap.Geocoder,AMap.Geolocation,AMap.Driving,AMap.Walking`;
       s.async = true;
       s.onload = () => { log("info", "高德脚本加载成功"); resolve(true); };
       s.onerror = () => { log("error", "高德脚本加载失败（检查 key / 网络 / 域名白名单）"); resolve(false); };
@@ -281,6 +284,7 @@
   let geo = null;
   let drivingSvc = null;
   let walkingSvc = null;
+  let routeLine = null;
 
   async function getCurrentPosition(opts){
     const options = Object.assign({
@@ -339,37 +343,52 @@
       renderOnMap: false
     }, opts || {});
 
-    const ok = await ensureAMapLoaded(false);
-    if (!ok || !window.AMap) throw new Error("AMap not ready");
-
     const fromPos = options.from || await getCurrentPosition();
     const toPos = { lng: it.lng, lat: it.lat };
-    const svc = getRouteService(options.mode, options.renderOnMap);
+    const cfg = loadCfg();
+    const restKey = (cfg.amapRestKey || "").trim();
+    if (!restKey){
+      throw new Error("AMap REST key missing");
+    }
 
-    return new Promise((resolve, reject) => {
-      svc.search([fromPos.lng, fromPos.lat], [toPos.lng, toPos.lat], (status, result) => {
-        if (status === "complete"){
-          resolve({
-            from: fromPos,
-            to: toPos,
-            mode: options.mode,
-            result
-          });
-        }else{
-          const msg = (result && (result.message || result.info)) || "route planning failed";
-          const extra = {
-            status,
-            mode: options.mode,
-            origin: [fromPos.lng, fromPos.lat],
-            destination: [toPos.lng, toPos.lat],
-            info: result && (result.info || result.infocode || result.message),
-            raw: result || null
-          };
-          log("error", "路线规划失败细节", JSON.stringify(extra));
-          reject(new Error(msg));
-        }
-      });
+    const isWalking = options.mode === "walking";
+    const endpoint = isWalking
+      ? "https://restapi.amap.com/v3/direction/walking"
+      : "https://restapi.amap.com/v3/direction/driving";
+
+    const params = new URLSearchParams({
+      key: restKey,
+      origin: `${fromPos.lng},${fromPos.lat}`,
+      destination: `${toPos.lng},${toPos.lat}`
     });
+    if (!isWalking){
+      params.set("strategy", "0");
+      params.set("extensions", "base");
+    }
+
+    const url = `${endpoint}?${params.toString()}`;
+    const res = await fetch(url);
+    const data = await res.json().catch(() => ({}));
+
+    if (data && String(data.status) === "1"){
+      return {
+        from: fromPos,
+        to: toPos,
+        mode: options.mode,
+        result: data,
+        url
+      };
+    }
+
+    const extra = {
+      mode: options.mode,
+      origin: [fromPos.lng, fromPos.lat],
+      destination: [toPos.lng, toPos.lat],
+      info: data && (data.info || data.infocode),
+      raw: data || null
+    };
+    log("error", "路线规划失败细节", JSON.stringify(extra));
+    throw new Error((data && (data.info || data.infocode)) || "route planning failed");
   }
 
   function buildAmapNavUri(it, opts){
@@ -390,20 +409,67 @@
     return url;
   }
 
+  function isMobile(){
+    const ua = navigator.userAgent || "";
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+  }
+
+  function mapNavMode(mode){
+    if (mode === "walking") return "walk";
+    if (mode === "driving") return "drive";
+    return "drive";
+  }
+
+  function clearRouteLine(){
+    if (routeLine){
+      routeLine.setMap(null);
+      routeLine = null;
+    }
+  }
+
+  function parsePolyline(polyline){
+    if (!polyline) return [];
+    return polyline.split(";").map(p => {
+      const [lng, lat] = p.split(",").map(Number);
+      return [lng, lat];
+    }).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+  }
+
+  function drawRouteLine(points){
+    clearRouteLine();
+    if (!map || !points.length) return;
+    routeLine = new AMap.Polyline({
+      path: points,
+      strokeColor: "#2563eb",
+      strokeOpacity: 0.9,
+      strokeWeight: 6
+    });
+    routeLine.setMap(map);
+    map.setFitView([routeLine]);
+  }
+
   async function renderRouteTo(it, opts){
     if (!it) throw new Error("target item is required");
     if (!map) initMap();
     const options = Object.assign({
       mode: "driving"
     }, opts || {});
-    const svc = getRouteService(options.mode, true);
-    if (svc && typeof svc.clear === "function"){
-      svc.clear();
-    }
     const res = await planRouteTo(it, {
       mode: options.mode,
-      renderOnMap: true
+      renderOnMap: false
     });
+
+    const data = res && res.result;
+    const steps = data && data.route && data.route.paths && data.route.paths[0] && data.route.paths[0].steps;
+    const points = [];
+    if (Array.isArray(steps)){
+      for (const s of steps){
+        if (s && s.polyline){
+          points.push(...parsePolyline(s.polyline));
+        }
+      }
+    }
+    drawRouteLine(points);
     focusItem(it);
     return res;
   }
@@ -414,7 +480,18 @@
       log("warn", "导航目标不存在", id);
       return;
     }
-    renderRouteTo(it, opts).catch((e) => {
+    const options = Object.assign({ mode: "driving" }, opts || {});
+    if (isMobile()){
+      // Mobile: open AMap app directly
+      try{
+        openAmapNav(it, { callnative: 1, mode: mapNavMode(options.mode) });
+      }catch (e){
+        log("error", "唤起高德失败", errToStr(e));
+        alert("唤起高德失败：" + toCNMsg(e));
+      }
+      return;
+    }
+    renderRouteTo(it, options).catch((e) => {
       log("error", "路线规划失败", errToStr(e));
       alert("路线规划失败：" + toCNMsg(e));
     });
