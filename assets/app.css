@@ -9,6 +9,7 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
   display:flex;gap:10px;align-items:center;
   padding:10px 12px;border-bottom:1px solid var(--border);
   position:sticky;top:0;background:var(--bg);z-index:10;
+  width:100%;box-sizing:border-box;
 }
 .topbar select,.topbar input{
   padding:8px 10px;border:1px solid #ddd;border-radius:10px;font-size:14px;
@@ -124,6 +125,10 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
 
 @media (max-width: 920px){
   .layout{grid-template-columns:1fr;}
-  .side{height:42vh;border-left:none;border-top:1px solid var(--border);}
-  #map{height:calc(58vh - 54px);}
+  .topbar{flex-wrap:wrap;}
+  .topbar select{flex:1 1 48%;}
+  .q-wrap{flex:1 1 100%;min-width:0;}
+  #q{width:100%;}
+  .side{height:42vh;min-height:42vh;max-height:42vh;border-left:none;border-top:1px solid var(--border);}
+  #map{height:calc(58vh - 54px);min-height:calc(58vh - 54px);max-height:calc(58vh - 54px);}
 }
