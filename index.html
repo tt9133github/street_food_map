@@ -31,16 +31,10 @@
     <div class="drawer-bd">
       <div class="sec" id="secManage">
         <h3>地址管理（新增 / 编辑 / 删除）</h3>
-        <div class="small">
-          这里的编辑默认写入 <b>本地浏览器存储</b>（localStorage）。<br/>
-          你可以用“导出 JSON”把结果复制/下载成 kb.json，然后手动替换仓库静态数据。
-        </div>
 
         <div class="row" style="margin-top:10px;">
           <button class="btn primary" id="btnNew">新增</button>
-          <button class="btn" id="btnSaveItem">保存</button>
-          <button class="btn" id="btnRelocate">重新定位</button>
-          <button class="btn danger" id="btnDelete">删除</button>
+
         </div>
         <div class="small" id="editHint" style="margin-top:8px;"></div>
 
@@ -56,13 +50,18 @@
         </div>
 
         <div class="row" style="margin-top:10px;">
-          <button class="btn" id="btnExport">导出 JSON（kb.json）</button>
-          <button class="btn" id="btnCopyExport">复制 JSON</button>
-          <button class="btn danger" id="btnClearLocal">清空本地编辑数据</button>
+          <button class="btn" id="btnSaveItem">保存</button>
+          <button class="btn" id="btnRelocate">重新定位</button>
+          <button class="btn danger" id="btnDelete">删除</button>
+        </div>
+        <h3>导出数据</h3>
+        <div class="small">
+          这里的编辑默认写入 <b>本地浏览器存储</b>（localStorage）。<br/>
+          你可以用“导出 JSON”把结果复制/下载成 kb.json，然后手动替换仓库静态数据。
         </div>
 
-        <div class="row" style="margin-top:10px;">
-          <textarea id="exportBox" placeholder="这里会显示导出的 JSON（kb.json 格式）"></textarea>
+          <button class="btn" id="btnExport">导出 JSON（kb.json）</button>
+          <button class="btn" id="btnCopyExport">复制 JSON</button>
         </div>
       </div>
 

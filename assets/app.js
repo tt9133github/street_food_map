@@ -249,8 +249,8 @@
     const lnglat = [pos.lng, pos.lat];
     const icon = new AMap.Icon({
       image: "https://webapi.amap.com/theme/v1.3/markers/b/mark_rs.png",
-      size: new AMap.Size(20, 20),
-      imageSize: new AMap.Size(20, 20)
+      size: new AMap.Size(22, 22),
+      imageSize: new AMap.Size(22, 22)
     });
     if (!userMarker){
       userMarker = new AMap.Marker({
@@ -740,7 +740,7 @@
     const cities = Array.from(counts.entries())
       .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0], "zh"));
     sel.innerHTML =
-      `<option value="">All cities (${items?.length || 0})</option>` +
+      `<option value="">全部城市 (${items?.length || 0})</option>` +
       cities.map(([c, n]) => `<option value="${escapeHtml(c)}">${escapeHtml(c)} (${n})</option>`).join("");
     // default Chengdu if exists
     const defaultCity = "成都";
@@ -762,7 +762,7 @@
     const cats = Array.from(counts.entries())
       .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0], "zh"));
     sel.innerHTML =
-      `<option value="">All categories (${list.length || 0})</option>` +
+      `<option value="">全部分类 (${list.length || 0})</option>` +
       cats.map(([c, n]) => `<option value="${escapeHtml(c)}">${escapeHtml(c)} (${n})</option>`).join("");
   }
 
@@ -883,8 +883,16 @@
   const fLat = document.getElementById("fLat");
   const editHint = document.getElementById("editHint");
   const exportBox = document.getElementById("exportBox");
+  const btnDelete = document.getElementById("btnDelete");
+  const btnRelocate = document.getElementById("btnRelocate");
 
   function setEditHint(html){ editHint.innerHTML = html || ""; }
+  function updateActionButtons(){
+    const hasSelected = !!selectedId;
+    if (btnDelete) btnDelete.disabled = !hasSelected;
+    const hasAddr = hasSelected && !!(fAddress.value || "").trim();
+    if (btnRelocate) btnRelocate.disabled = !hasAddr;
+  }
 
   function getEditingItemFromForm(){
     return {
@@ -915,6 +923,7 @@
       setFormFromItem({name:"",category:"",city:"",address:"",lng:"",lat:""});
       setEditHint("Editing: <span class='warn'>None selected</span> (click a list item to edit, or click New)");
     }
+    updateActionButtons();
   }
 
   function upsertLocalAndRerender(){
@@ -930,6 +939,7 @@
     setEditHint("New item mode: fill in then click Save");
     fName.focus();
   });
+  fAddress.addEventListener("input", updateActionButtons);
 
   document.getElementById("btnSaveItem").addEventListener("click", async () => {
     const form = getEditingItemFromForm();

@@ -64,6 +64,10 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
   color:#fff;padding:7px 10px;border-radius:12px;
   cursor:pointer;font-size:13px;
 }
+.btn:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
 .btn:hover{background:rgba(255,255,255,.14);}
 .btn.danger{border-color:rgba(255,107,107,.45);}
 .btn.primary{border-color:rgba(99,102,241,.55);}
@@ -125,10 +129,9 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
 
 @media (max-width: 920px){
   .layout{grid-template-columns:1fr;}
-  .topbar{flex-wrap:wrap;}
-  .topbar select{flex:1 1 48%;}
-  .q-wrap{flex:1 1 100%;min-width:0;}
-  #q{width:100%;}
+  .topbar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+  .topbar select,.topbar input{width:100%;box-sizing:border-box;}
+  .q-wrap{min-width:0;}
   .side{height:42vh;min-height:42vh;max-height:42vh;border-left:none;border-top:1px solid var(--border);}
   #map{height:calc(58vh - 54px);min-height:calc(58vh - 54px);max-height:calc(58vh - 54px);}
 }
