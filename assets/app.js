@@ -417,43 +417,45 @@
     const ua = navigator.userAgent || "";
     return /iPhone|iPad|iPod/i.test(ua);
   }
+  function isAndroid(){
+    const ua = navigator.userAgent || "";
+    return /Android/i.test(ua);
+  }
 
   function mapNavMode(mode){
     if (mode === "walking") return "walk";
     if (mode === "driving") return "drive";
     return "drive";
   }
-  function mapNavModeIOS(mode){
-    if (mode === "walking") return 2; // walking
-    return 0; // driving
-  }
-
   function buildAmapIOSScheme(it, opts){
     const options = Object.assign({
       mode: "driving"
     }, opts || {});
-    const t = mapNavModeIOS(options.mode);
     const name = encodeURIComponent(it.name || "destination");
-    // iosamap://route?sourceApplication=app&dlat=..&dlon=..&dname=..&dev=0&t=0
-    return `iosamap://route?sourceApplication=street_food_map&dlat=${encodeURIComponent(it.lat)}&dlon=${encodeURIComponent(it.lng)}&dname=${name}&dev=0&t=${t}`;
+    const style = options.mode === "walking" ? 2 : 2;
+    // 官方 iOS 导航：iosamap://navi?sourceApplication=...&poiname=...&lat=...&lon=...&dev=0&style=2
+    return `iosamap://navi?sourceApplication=street_food_map&poiname=${name}&lat=${encodeURIComponent(it.lat)}&lon=${encodeURIComponent(it.lng)}&dev=0&style=${style}`;
   }
 
   function openAmapIOS(it, opts){
     const url = buildAmapIOSScheme(it, opts);
-    const fallback = buildAmapNavUri(it, { callnative: 0, mode: mapNavMode((opts && opts.mode) || "driving") });
-    const start = Date.now();
-    let hidden = false;
-    const onVis = () => {
-      if (document.visibilityState === "hidden") hidden = true;
-    };
-    document.addEventListener("visibilitychange", onVis, { once: true });
     location.href = url;
-    setTimeout(() => {
-      document.removeEventListener("visibilitychange", onVis);
-      if (!hidden && Date.now() - start < 1500){
-        location.href = fallback;
-      }
-    }, 1200);
+    return url;
+  }
+
+  function buildAmapAndroidScheme(it, opts){
+    const options = Object.assign({
+      mode: "driving"
+    }, opts || {});
+    const t = options.mode === "walking" ? 2 : 0; // 0 driving, 2 walking
+    const name = encodeURIComponent(it.name || "destination");
+    // androidamap://route?sourceApplication=app&dlat=..&dlon=..&dname=..&dev=0&t=0
+    return `androidamap://route?sourceApplication=street_food_map&dlat=${encodeURIComponent(it.lat)}&dlon=${encodeURIComponent(it.lng)}&dname=${name}&dev=0&t=${t}`;
+  }
+
+  function openAmapAndroid(it, opts){
+    const url = buildAmapAndroidScheme(it, opts);
+    location.href = url;
     return url;
   }
 
@@ -518,13 +520,12 @@
       return;
     }
     const options = Object.assign({ mode: "driving" }, opts || {});
-    if (isMobile()){
+    if (isMobile() && (isIOS() || isAndroid())){
       try{
         if (isIOS()){
           openAmapIOS(it, options);
         }else{
-          // Android or others: open AMap app directly
-          openAmapNav(it, { callnative: 1, mode: mapNavMode(options.mode) });
+          openAmapAndroid(it, options);
         }
       }catch (e){
         log("error", "唤起高德失败", errToStr(e));
@@ -811,10 +812,28 @@
     return filtered;
   }
 
-  document.getElementById("q").addEventListener("input", () => {
+  const qEl = document.getElementById("q");
+  const qClearEl = document.getElementById("qClear");
+  function syncQClear(){
+    if (!qClearEl) return;
+    qClearEl.style.display = (qEl && qEl.value) ? "block" : "none";
+  }
+
+  qEl.addEventListener("input", () => {
     clearTimeout(window.__sfm_q_t);
     window.__sfm_q_t = setTimeout(() => applyFilter(), 120);
+    syncQClear();
   });
+  if (qClearEl){
+    qClearEl.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      qEl.value = "";
+      syncQClear();
+      applyFilter();
+      qEl.focus();
+    });
+  }
+  syncQClear();
   document.getElementById("cat").addEventListener("change", () => applyFilter());
 
   /**********************

@@ -14,7 +14,14 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
   padding:8px 10px;border:1px solid #ddd;border-radius:10px;font-size:14px;
   background:#fff;
 }
-.topbar input{flex:1;min-width:140px;}
+.q-wrap{position:relative;flex:1;min-width:140px;}
+.topbar input{width:100%;padding-right:28px;}
+.q-clear{
+  position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  border:none;background:transparent;color:#888;font-size:16px;
+  cursor:pointer;line-height:1;display:none;
+}
+.q-clear:hover{color:#333;}
 .layout{display:grid;grid-template-columns:1fr 360px;height:calc(100% - 54px);}
 #map{height:100%;width:100%;}
 .side{border-left:1px solid var(--border);overflow:auto;background:#fff;}
