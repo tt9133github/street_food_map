@@ -38,6 +38,33 @@
       return String(e);
     }
   }
+  function errMsg(e){
+    if (!e) return "";
+    if (typeof e === "string") return e;
+    if (e instanceof Error) return e.message || "error";
+    return (e.message || e.info || e.msg || "").toString() || JSON.stringify(e);
+  }
+  function toCNMsg(e){
+    const raw = errMsg(e);
+    const msg = (raw || "").toLowerCase();
+    if (!msg) return "未知错误";
+    if (msg.includes("permission") || msg.includes("denied") || msg.includes("secure origin")){
+      return "定位被拒绝或当前页面非 HTTPS，无法获取当前位置";
+    }
+    if (msg.includes("timeout")){
+      return "定位超时，请检查网络或稍后重试";
+    }
+    if (msg.includes("amap not ready")){
+      return "高德地图未就绪，请检查 Key 或网络";
+    }
+    if (msg.includes("no coordinates")){
+      return "该店铺没有坐标，无法规划路线";
+    }
+    if (msg.includes("invalid_userkey") || msg.includes("key")){
+      return "高德 Key 无效或权限不足";
+    }
+    return raw;
+  }
   function log(level, msg, extra){
     if (LogLevel[level] < LogLevel[currentLevel]) return;
     const line = `[${nowStr()}] [${level.toUpperCase()}] ${msg}` + (extra ? ` | ${extra}` : "");
@@ -330,6 +357,15 @@
           });
         }else{
           const msg = (result && (result.message || result.info)) || "route planning failed";
+          const extra = {
+            status,
+            mode: options.mode,
+            origin: [fromPos.lng, fromPos.lat],
+            destination: [toPos.lng, toPos.lat],
+            info: result && (result.info || result.infocode || result.message),
+            raw: result || null
+          };
+          log("error", "路线规划失败细节", JSON.stringify(extra));
           reject(new Error(msg));
         }
       });
@@ -380,7 +416,7 @@
     }
     renderRouteTo(it, opts).catch((e) => {
       log("error", "路线规划失败", errToStr(e));
-      alert("路线规划失败：" + errToStr(e));
+      alert("路线规划失败：" + toCNMsg(e));
     });
   }
 
