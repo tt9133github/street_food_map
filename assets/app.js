@@ -252,7 +252,8 @@
         position: lnglat,
         title: "Current Location",
         zIndex: 200,
-        offset: new AMap.Pixel(0, 0)
+        offset: new AMap.Pixel(-12, -24),
+        content: "<div style=\"width:18px;height:18px;border-radius:50%;background:#ef4444;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.25);\"></div>"
       });
       userMarker.setMap(map);
     }else{
