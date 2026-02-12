@@ -11,6 +11,18 @@
 (() => {
   "use strict";
 
+  let map = null;
+
+  function setViewportHeightVar(){
+    const vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty("--vh", `${vh}px`);
+    if (map && typeof map.resize === "function"){
+      requestAnimationFrame(() => {
+        try{ map.resize(); }catch{}
+      });
+    }
+  }
+
   /**********************
    * 0) Constants
    **********************/
@@ -89,12 +101,23 @@
   const mask = document.getElementById("mask");
   const closeBtn = document.getElementById("close");
 
-  function openDrawer(){ body.classList.add("open"); drawer.setAttribute("aria-hidden","false"); }
-  function closeDrawer(){ body.classList.remove("open"); drawer.setAttribute("aria-hidden","true"); }
+  function openDrawer(){
+    body.classList.add("open");
+    drawer.setAttribute("aria-hidden","false");
+    setViewportHeightVar();
+  }
+  function closeDrawer(){
+    body.classList.remove("open");
+    drawer.setAttribute("aria-hidden","true");
+    setViewportHeightVar();
+  }
 
   fab.addEventListener("click", openDrawer);
   mask.addEventListener("click", closeDrawer);
   closeBtn.addEventListener("click", closeDrawer);
+  window.addEventListener("resize", setViewportHeightVar);
+  window.addEventListener("orientationchange", setViewportHeightVar);
+  setViewportHeightVar();
 
   const logLevelSel = document.getElementById("logLevel");
   logLevelSel.value = currentLevel;
@@ -150,7 +173,6 @@
   /**********************
    * 4) AMap dynamic loader + map helpers
    **********************/
-  let map = null;
   let markers = [];
   let amapLoading = null;
   let userMarker = null;
