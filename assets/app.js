@@ -4,7 +4,6 @@
  * - Local editable store (localStorage)
  * - CRUD: add/edit/delete
  * - Relocate via AMap.Geocoder
- * - Export/copy kb.json JSON
  * - Drawer + logs + mobile-friendly
  */
 
@@ -564,6 +563,7 @@
    **********************/
   let allItems = [];
   let selectedId = null;
+  let editMode = "none"; // none | new | edit
 
   function normRow(r){
     return {
@@ -895,7 +895,7 @@
   });
 
   /**********************
-   * 7) Manage panel (CRUD + relocate + export)
+   * 7) Manage panel (CRUD + relocate)
    **********************/
   const fName = document.getElementById("fName");
   const fCategory = document.getElementById("fCategory");
@@ -904,7 +904,6 @@
   const fLng = document.getElementById("fLng");
   const fLat = document.getElementById("fLat");
   const editHint = document.getElementById("editHint");
-  const exportBox = document.getElementById("exportBox");
   const btnDelete = document.getElementById("btnDelete");
   const btnRelocate = document.getElementById("btnRelocate");
 
@@ -912,8 +911,13 @@
   function updateActionButtons(){
     const hasSelected = !!selectedId;
     if (btnDelete) btnDelete.disabled = !hasSelected;
-    const hasAddr = hasSelected && !!(fAddress.value || "").trim();
-    if (btnRelocate) btnRelocate.disabled = !hasAddr;
+    const hasAddr = !!(fAddress.value || "").trim();
+    const showRelocate = (editMode === "new" || editMode === "edit");
+    if (btnRelocate){
+      btnRelocate.style.display = showRelocate ? "" : "none";
+      btnRelocate.textContent = (editMode === "new") ? "定位" : "重新定位";
+      btnRelocate.disabled = !hasAddr;
+    }
   }
 
   function getEditingItemFromForm(){
@@ -935,13 +939,15 @@
     fLat.value = (it?.lat == null ? "" : String(it.lat));
   }
 
-  function syncEditorSelection(id){
+  function syncEditorSelection(id, modeOverride){
     selectedId = id ? String(id) : null;
     const it = selectedId ? allItems.find(x => String(x.id) === String(selectedId)) : null;
     if (it){
+      editMode = "edit";
       setFormFromItem(it);
       setEditHint(`Editing: <b>${escapeHtml(it.name || "(Unnamed)")}</b> (id=${escapeHtml(it.id)})`);
     }else{
+      editMode = modeOverride || "none";
       setFormFromItem({name:"",category:"",city:"",address:"",lng:"",lat:""});
       setEditHint("Editing: <span class='warn'>None selected</span> (click a list item to edit, or click New)");
     }
@@ -957,7 +963,7 @@
 
   document.getElementById("btnNew").addEventListener("click", () => {
     selectedId = null;
-    syncEditorSelection(null);
+    syncEditorSelection(null, "new");
     setEditHint("New item mode: fill in then click Save");
     fName.focus();
   });
@@ -1117,52 +1123,6 @@
     }
   });
 
-  function toKbJson(items){
-    return {
-      version: 1,
-      items: (items || []).map(it => ({
-        id: it.id,
-        name: it.name || "",
-        city: it.city || "",
-        address: it.address || "",
-        category: it.category || "",
-        location: (it.lng != null && it.lat != null) ? { lng: Number(it.lng), lat: Number(it.lat) } : null
-      }))
-    };
-  }
-
-  function refreshExportBox(){
-    const kb = toKbJson(allItems);
-    exportBox.value = JSON.stringify(kb, null, 2);
-    return exportBox.value;
-  }
-
-  function downloadText(filename, text){
-    const blob = new Blob([text], { type: "application/json;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  document.getElementById("btnExport").addEventListener("click", () => {
-    const text = refreshExportBox();
-    downloadText("kb.json", text);
-    log("info", "Exported kb.json (download)");
-  });
-  document.getElementById("btnCopyExport").addEventListener("click", async () => {
-    const text = refreshExportBox();
-    try{
-      await navigator.clipboard.writeText(text);
-      log("info", "Logs copied to clipboard");
-      setEditHint("Export JSON copied (replace repo kb.json)");
-    }catch(e){
-      log("warn", "Copy failed (browser restriction)", errToStr(e));
-      setEditHint("<span class='warn'>Copy failed (browser restriction)</span>: you can manually select and copy the text below");
-    }
-  });
 
   /**********************
    * 8) Other buttons
@@ -1221,7 +1181,6 @@
 
     await bootLoadData({ forceRemote: true });
     syncEditorSelection(null);
-    refreshExportBox();
   })();
 
 })();

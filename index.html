@@ -40,8 +40,8 @@
 
         <div class="split" style="margin-top:10px;">
           <div class="row"><input id="fName" placeholder="店名（必填）" /></div>
-          <div class="row"><input id="fCategory" placeholder="品类（例如 面 / 中餐）" /></div>
-          <div class="row"><input id="fCity" placeholder="城市（例如 成都市）" /></div>
+          <div class="row"><input id="fCategory" placeholder="品类（例如：中餐、粤菜等）" /></div>
+          <div class="row"><input id="fCity" placeholder="城市（例如：成都市）" /></div>
           <div class="row"><input id="fAddress" placeholder="地址（用于定位）" /></div>
           <div class="row" style="gap:8px;">
             <input id="fLng" placeholder="lng 经度（可空，点重新定位可自动填）" />
@@ -50,20 +50,9 @@
         </div>
 
         <div class="row" style="margin-top:10px;">
-          <button class="btn" id="btnSaveItem">保存</button>
           <button class="btn" id="btnRelocate">重新定位</button>
+          <button class="btn" id="btnSaveItem">保存</button>
           <button class="btn danger" id="btnDelete">删除</button>
-        </div>
-        <h3>导出数据</h3>
-        <div class="small">
-          这里的编辑默认写入 <b>本地浏览器存储</b>（localStorage）。<br/>
-          你可以用“导出 JSON”把结果复制/下载成 kb.json，然后手动替换仓库静态数据。
-        </div>
-
-          <button class="btn" id="btnExport">导出 JSON（kb.json）</button>
-          <button class="btn" id="btnCopyExport">复制 JSON</button>
-          <textarea id="exportBox"></textarea>
-
         </div>
       </div>
 
