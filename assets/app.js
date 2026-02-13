@@ -685,31 +685,6 @@
     return data;
   }
 
-  async function loadFromLocalKb(){
-    log("info", "Fallback to local kb.json");
-    try{
-      const r = await fetch("./kb.json", { cache: "no-store" });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const kb = await r.json();
-      const items = Array.isArray(kb.items) ? kb.items : [];
-      const mapped = items.map(it => ({
-        id: String(it.id ?? crypto.randomUUID()),
-        name: it.name || "",
-        city: it.city || "",
-        address: it.address || "",
-        category: it.category || "",
-        lng: it?.location?.lng ?? null,
-        lat: it?.location?.lat ?? null,
-        updatedAt: it.updatedAt || null
-      }));
-      log("info", "Local data count", String(mapped.length));
-      return mapped.map(normRow);
-    }catch(e){
-      log("error", "Local kb.json read failed", errToStr(e));
-      return [];
-    }
-  }
-
 
   async function bootLoadData(opts){
     const preferLocal = !!(opts && opts.preferLocal);
@@ -729,9 +704,7 @@
     }
 
     const remote = await loadFromSupabase();
-    allItems = remote || await loadFromLocalKb();
-
-    saveLocalDB(allItems, remote ? "supabase" : "kb.json");
+    allItems = remote;
     renderCity(allItems);
     renderCat(allItems);
     applyFilter();
@@ -1081,17 +1054,8 @@
 
   document.getElementById("btnRelocate").addEventListener("click", async () => {
     try{
-      if (!selectedId){
-        setEditHint("<span class='warn'>Select a list item first, then relocate</span>");
-        return;
-      }
-      const idx = allItems.findIndex(x => String(x.id) === String(selectedId));
-      if (idx < 0){
-        setEditHint("<span class='err'>Item not found</span>");
-        return;
-      }
-      const it = allItems[idx];
-      const addr = [it.city, it.address].filter(Boolean).join(" ").trim();
+      const form = getEditingItemFromForm();
+      const addr = [form.city, form.address].filter(Boolean).join(" ").trim();
       if (!addr){
         setEditHint("<span class='err'>City/address is empty, cannot locate</span>");
         return;
@@ -1103,20 +1067,35 @@
 
       setEditHint("Locating...");
       const loc = await geocodeAddress(addr);
-      const payload = { lng: loc.lng, lat: loc.lat, updated_at: new Date().toISOString() };
-      // update database first
-      await supaRequest(
-        "PATCH",
-        `/rest/v1/places?id=eq.${encodeURIComponent(it.id)}`,
-        payload
-      );
-      allItems[idx] = { ...it, ...payload };
-      upsertLocalAndRerender();
-      syncEditorSelection(selectedId);
-      const it2 = allItems[idx];
-      focusItem(it2);
-      log("info", "Relocate succeeded", `${it2.name} @ ${loc.lng},${loc.lat}`);
-      setEditHint(`Relocated: <b>${escapeHtml(it2.name)}</b>`);
+
+      if (selectedId){
+        const idx = allItems.findIndex(x => String(x.id) === String(selectedId));
+        if (idx < 0){
+          setEditHint("<span class='err'>Item not found</span>");
+          return;
+        }
+        const it = allItems[idx];
+        const payload = { lng: loc.lng, lat: loc.lat, updated_at: new Date().toISOString() };
+        // update database first
+        await supaRequest(
+          "PATCH",
+          `/rest/v1/places?id=eq.${encodeURIComponent(it.id)}`,
+          payload
+        );
+        allItems[idx] = { ...it, ...payload };
+        upsertLocalAndRerender();
+        syncEditorSelection(selectedId);
+        const it2 = allItems[idx];
+        focusItem(it2);
+        log("info", "Relocate succeeded", `${it2.name} @ ${loc.lng},${loc.lat}`);
+        setEditHint(`Relocated: <b>${escapeHtml(it2.name)}</b>`);
+      }else{
+        fLng.value = String(loc.lng);
+        fLat.value = String(loc.lat);
+        updateActionButtons();
+        log("info", "Locate succeeded (new item)", `${loc.lng},${loc.lat}`);
+        setEditHint("定位成功：已填入经纬度（保存后生效）");
+      }
     }catch(e){
       log("error", "Relocate failed", errToStr(e));
       setEditHint(`<span class='err'>Relocate failed</span>: ${escapeHtml(errToStr(e)).slice(0,200)}`);
