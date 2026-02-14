@@ -21,6 +21,13 @@
     <div class="side" id="list"></div>
   </div>
 
+  <div class="loading" id="loading" aria-hidden="true">
+    <div class="loading-box" role="status" aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span>
+      <span class="loading-text">处理中…</span>
+    </div>
+  </div>
+
   <button class="fab" id="fab" title="设置 / 管理 / 日志">⚙️</button>
   <div class="mask" id="mask"></div>
   <aside class="drawer" id="drawer" aria-hidden="true">
@@ -36,7 +43,7 @@
           <button class="btn primary" id="btnNew">新增</button>
 
         </div>
-        <div class="small" id="editHint" style="margin-top:8px;"></div>
+        <div class="small edit-hint" id="editHint" style="margin-top:8px;"></div>
 
         <div class="split" style="margin-top:10px;">
           <div class="row"><input id="fName" placeholder="店名（必填）" /></div>

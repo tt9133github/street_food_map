@@ -57,6 +57,29 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
 }
 .open .mask{opacity:1;pointer-events:auto;}
 .open .drawer{transform:translateX(0);}
+
+.loading{
+  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.25);
+  opacity:0;pointer-events:none;transition:.18s ease;
+  z-index:100000;
+}
+.loading.show{opacity:1;pointer-events:auto;}
+.loading-box{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;border-radius:12px;
+  background:rgba(20,20,22,.96);color:#fff;
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 10px 30px rgba(0,0,0,.25);
+  font-size:13px;
+}
+.spinner{
+  width:16px;height:16px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.25);
+  border-top-color:#fff;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
 .drawer-hd{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:space-between;}
 .btn{
   background:rgba(255,255,255,.10);
@@ -113,6 +136,16 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
 }
 .sec h3{margin:0 0 8px 0;font-size:14px;}
 .small{font-size:12px;color:rgba(255,255,255,.72);line-height:1.5;}
+.edit-hint{
+  color:rgba(255,255,255,.72);
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:10px;
+  padding:6px 8px;
+}
+.edit-hint.is-success{color:#22c55e;border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.08);}
+.edit-hint.is-error{color:#ef4444;border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.08);}
+.edit-hint.is-warn{color:#f59e0b;border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.08);}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
 .row input,.row textarea{
   padding:7px 9px;border-radius:10px;border:1px solid rgba(255,255,255,.18);
@@ -130,12 +163,6 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
 .row input{flex:1;min-width:180px;}
 .row textarea{width:100%;min-height:140px;resize:vertical;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
 .split{display:grid;grid-template-columns:1fr;gap:8px;}
-.pill{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:3px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.18);
-  background:rgba(255,255,255,.08);font-size:12px;color:rgba(255,255,255,.85);
-}
-
 /* 日志：强制深色背景 + 浅色文字 */
 .logs{
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

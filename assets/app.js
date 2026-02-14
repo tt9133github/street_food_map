@@ -99,6 +99,25 @@
   const fab = document.getElementById("fab");
   const mask = document.getElementById("mask");
   const closeBtn = document.getElementById("close");
+  const loadingEl = document.getElementById("loading");
+  let loadingCount = 0;
+
+  function showLoading(msg){
+    loadingCount += 1;
+    if (!loadingEl) return;
+    const textEl = loadingEl.querySelector(".loading-text");
+    if (textEl && msg) textEl.textContent = msg;
+    loadingEl.classList.add("show");
+    loadingEl.setAttribute("aria-hidden", "false");
+  }
+  function hideLoading(){
+    loadingCount = Math.max(0, loadingCount - 1);
+    if (!loadingEl) return;
+    if (loadingCount === 0){
+      loadingEl.classList.remove("show");
+      loadingEl.setAttribute("aria-hidden", "true");
+    }
+  }
 
   function openDrawer(){
     body.classList.add("open");
@@ -631,6 +650,7 @@
     log("info", "Start remote fetch: places", url);
 
     const t0 = performance.now();
+    showLoading("正在加载数据...");
     const res = await fetch(url, {
       headers: { apikey: anon, Authorization: `Bearer ${anon}` },
       cache: "no-store"
@@ -638,6 +658,7 @@
       log("error", "Fetch failed", errToStr(e));
       return null;
     });
+    hideLoading();
     if (!res) return null;
 
     const t1 = performance.now();
@@ -880,7 +901,13 @@
   const btnDelete = document.getElementById("btnDelete");
   const btnRelocate = document.getElementById("btnRelocate");
 
-  function setEditHint(html){ editHint.innerHTML = html || ""; }
+  function setEditHint(html, tone){
+       editHint.innerHTML = html || "";
+       editHint.classList.remove("is-success", "is-error", "is-warn");
+           if (tone === "success") editHint.classList.add("is-success");
+              else if (tone === "error") editHint.classList.add("is-error");
+                  else if (tone === "warn") editHint.classList.add("is-warn");
+                  }
   function updateActionButtons(){
     const hasSelected = !!selectedId;
     if (btnDelete) btnDelete.disabled = !hasSelected;
@@ -918,11 +945,11 @@
     if (it){
       editMode = "edit";
       setFormFromItem(it);
-      setEditHint(`Editing: <b>${escapeHtml(it.name || "(Unnamed)")}</b> (id=${escapeHtml(it.id)})`);
+      setEditHint(`Editing: <b>${escapeHtml(it.name || "(Unnamed)")}</b> (id=${escapeHtml(it.id)})`, "info");
     }else{
       editMode = modeOverride || "none";
       setFormFromItem({name:"",category:"",city:"",address:"",lng:"",lat:""});
-      setEditHint("Editing: <span class='warn'>None selected</span> (click a list item to edit, or click New)");
+      setEditHint("Editing: <span class='warn'>None selected</span> (click a list item to edit, or click New)", "warn");
     }
     updateActionButtons();
   }
@@ -937,7 +964,7 @@
   document.getElementById("btnNew").addEventListener("click", () => {
     selectedId = null;
     syncEditorSelection(null, "new");
-    setEditHint("New item mode: fill in then click Save");
+    setEditHint("New item mode: fill in then click Save", "info");
     fName.focus();
   });
   fAddress.addEventListener("input", updateActionButtons);
@@ -945,23 +972,25 @@
   document.getElementById("btnSaveItem").addEventListener("click", async () => {
     const form = getEditingItemFromForm();
     if (!form.name){
-      setEditHint("<span class='err'>Name is required</span>");
+      setEditHint("<span class='err'>Name is required</span>", "error");
       log("warn", "Save failed: name required");
       return;
     }
     const lng = form.lng === "" ? null : Number(form.lng);
     const lat = form.lat === "" ? null : Number(form.lat);
     if ((form.lng !== "" && Number.isNaN(lng)) || (form.lat !== "" && Number.isNaN(lat))){
-      setEditHint("<span class='err'>lng/lat must be numbers or empty</span>");
+      setEditHint("<span class='err'>lng/lat must be numbers or empty</span>", "error");
       log("warn", "Save failed: lng/lat invalid");
       return;
     }
 
     try{
+      showLoading("正在保存...");
       if (selectedId){
         const idx = allItems.findIndex(x => String(x.id) === String(selectedId));
         if (idx < 0){
-          setEditHint("<span class='err'>Item to edit not found</span>");
+          setEditHint("<span class='err'>Item to edit not found</span>", "error");
+          hideLoading();
           return;
         }
         const payload = {
@@ -997,17 +1026,19 @@
       syncEditorSelection(selectedId);
       const it2 = selectedId ? allItems.find(x => String(x.id) === String(selectedId)) : null;
       if (it2) focusItem(it2);
-      setEditHint("Saved to database");
+      setEditHint("Saved to database", "success");
     }catch (e){
       log("error", "Save to database failed", errToStr(e));
-      setEditHint(`<span class='err'>Save failed</span>: ${escapeHtml(errToStr(e)).slice(0,200)}`);
+      setEditHint(`<span class='err'>Save failed</span>: ${escapeHtml(errToStr(e)).slice(0,200)}`, "error");
+    }finally{
+      hideLoading();
     }
 
   });
 
   document.getElementById("btnDelete").addEventListener("click", async () => {
     if (!selectedId){
-      setEditHint("<span class='warn'>No item selected, cannot delete</span>");
+      setEditHint("<span class='warn'>No item selected, cannot delete</span>", "warn");
       return;
     }
     const it = allItems.find(x => String(x.id) === String(selectedId));
@@ -1017,16 +1048,19 @@
     if (!ok) return;
 
     try{
+      showLoading("正在删除...");
       await supaRequest("DELETE", `/rest/v1/places?id=eq.${encodeURIComponent(selectedId)}`);
       allItems = allItems.filter(x => String(x.id) !== String(selectedId));
       log("warn", "Deleted item", `${selectedId}`);
       selectedId = null;
       upsertLocalAndRerender();
       syncEditorSelection(null);
-      setEditHint("Deleted from database");
+      setEditHint("Deleted from database", "success");
     }catch (e){
       log("error", "Delete failed", errToStr(e));
-      setEditHint(`<span class='err'>Delete failed</span>: ${escapeHtml(errToStr(e)).slice(0,200)}`);
+      setEditHint(`<span class='err'>Delete failed</span>: ${escapeHtml(errToStr(e)).slice(0,200)}`, "error");
+    }finally{
+      hideLoading();
     }
   });
 
@@ -1057,21 +1091,22 @@
       const form = getEditingItemFromForm();
       const addr = [form.city, form.address].filter(Boolean).join(" ").trim();
       if (!addr){
-        setEditHint("<span class='err'>City/address is empty, cannot locate</span>");
+        setEditHint("<span class='err'>City/address is empty, cannot locate</span>", "error");
         return;
       }
       if (!window.AMap){
-        setEditHint("<span class='err'>Map not loaded (AMap not ready)</span>");
+        setEditHint("<span class='err'>Map not loaded (AMap not ready)</span>", "error");
         return;
       }
 
+      showLoading(editMode === "new" ? "正在新增定位..." : "正在重新定位...");
       setEditHint("Locating...");
       const loc = await geocodeAddress(addr);
 
       if (selectedId){
         const idx = allItems.findIndex(x => String(x.id) === String(selectedId));
         if (idx < 0){
-          setEditHint("<span class='err'>Item not found</span>");
+          setEditHint("<span class='err'>Item not found</span>", "error");
           return;
         }
         const it = allItems[idx];
@@ -1088,52 +1123,25 @@
         const it2 = allItems[idx];
         focusItem(it2);
         log("info", "Relocate succeeded", `${it2.name} @ ${loc.lng},${loc.lat}`);
-        setEditHint(`Relocated: <b>${escapeHtml(it2.name)}</b>`);
+        setEditHint(`Relocated: <b>${escapeHtml(it2.name)}</b>`, "success");
       }else{
         fLng.value = String(loc.lng);
         fLat.value = String(loc.lat);
         updateActionButtons();
         log("info", "Locate succeeded (new item)", `${loc.lng},${loc.lat}`);
-        setEditHint("定位成功：已填入经纬度（保存后生效）");
+        setEditHint("定位成功：已填入经纬度", "success");
       }
     }catch(e){
       log("error", "Relocate failed", errToStr(e));
-      setEditHint(`<span class='err'>Relocate failed</span>: ${escapeHtml(errToStr(e)).slice(0,200)}`);
+      setEditHint(`<span class='err'>Relocate failed</span>: ${escapeHtml(errToStr(e)).slice(0,200)}`, "error");
+    }finally{
+      hideLoading();
     }
   });
 
 
   /**********************
-   * 8) Other buttons
-   **********************/
-  const btnReload = document.getElementById("btnReload");
-  if (btnReload){
-    btnReload.addEventListener("click", () => {
-      closeDrawer();
-      bootLoadData({ forceRemote: true });
-    });
-  }
-  const btnUseLocal = document.getElementById("btnUseLocal");
-  if (btnUseLocal){
-    btnUseLocal.addEventListener("click", () => {
-      closeDrawer();
-      bootLoadData({ preferLocal: true });
-    });
-  }
-  const btnReloadMap = document.getElementById("btnReloadMap");
-  if (btnReloadMap){
-    btnReloadMap.addEventListener("click", async () => {
-      closeDrawer();
-      const ok = await ensureAMapLoaded(true);
-      if (ok){
-        initMap();
-        applyFilter();
-      }
-    });
-  }
-
-  /**********************
-   * 9) Boot
+   * 8) Boot
    **********************/
   (async function main(){
     // No settings UI to render for Supabase
