@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>street_food_map</title>
+  <title>街头美食地图</title>
   <link rel="stylesheet" href="./assets/app.css" />
   <link rel="icon" href="https://developers.openai.com/favicon.png">
 <body>
@@ -11,8 +11,8 @@
     <select id="city"></select>
     <select id="cat"></select>
     <div class="q-wrap">
-      <input id="q" placeholder="Search (name / address / city)" />
-      <button class="q-clear" id="qClear" aria-label="Clear search">×</button>
+      <input id="q" placeholder="搜索（店名 / 地址 / 城市）" />
+      <button class="q-clear" id="qClear" aria-label="清空搜索">×</button>
     </div>
   </div>
 
@@ -67,15 +67,15 @@
         <h3>日志</h3>
         <div class="row" style="margin-bottom:8px;">
           <select id="logLevel">
-            <option value="debug">debug</option>
-            <option value="info" selected>info</option>
-            <option value="warn">warn</option>
-            <option value="error">error</option>
+            <option value="debug">调试</option>
+            <option value="info" selected>信息</option>
+            <option value="warn">警告</option>
+            <option value="error">错误</option>
           </select>
           <button class="btn" id="btnClearLog">清空</button>
           <button class="btn" id="btnCopyLog">复制</button>
         </div>
-        <div class="small">Console 同步输出；这里方便手机端查看。</div>
+        <div class="small">控制台同步输出；这里方便手机端查看。</div>
         <div class="logs" id="logs"></div>
       </div>
     </div>
