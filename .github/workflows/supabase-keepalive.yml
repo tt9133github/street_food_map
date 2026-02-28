@@ -1,0 +1,52 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    # Every 3 days at 03:17 UTC. Avoid the top of the hour because scheduled
+    # workflows are more likely to be delayed there.
+    - cron: "17 3 */3 * *"
+  workflow_dispatch:
+
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Validate configuration
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "Missing repository variable: SUPABASE_URL"
+            exit 1
+          fi
+
+          if [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Missing repository secret: SUPABASE_ANON_KEY"
+            exit 1
+          fi
+
+      - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          curl --fail --silent --show-error \
+            --get \
+            --url "${SUPABASE_URL%/}/rest/v1/places" \
+            --header "apikey: $SUPABASE_ANON_KEY" \
+            --header "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            --header "Accept: application/json" \
+            --header "Prefer: count=none" \
+            --data-urlencode "select=id" \
+            --data-urlencode "limit=1" \
+            --output /dev/null
+
+      - name: Log success
+        run: echo "Supabase keepalive request completed."

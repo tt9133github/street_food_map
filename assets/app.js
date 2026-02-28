@@ -27,8 +27,9 @@
    **********************/
   const CFG_KEY = "sfm_cfg_v1";
   const DB_KEY  = "sfm_db_v1"; // local editable dataset
-  const SUPABASE_URL = "https://gwwiwhmryyruyxrmvjbm.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3d2l3aG1yeXlydXl4cm12amJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NDA1MDcsImV4cCI6MjA4NjAxNjUwN30.Nl3u335qC5MylCYLjTfTm7vOu4msvl3QjplZuVPqAg4";
+  const RUNTIME_CFG = (window.APP_CONFIG && typeof window.APP_CONFIG === "object")
+    ? window.APP_CONFIG
+    : {};
 
   /**********************
    * 1) Lightweight logger
@@ -162,8 +163,8 @@
    * 3) Config (default + local override)
    **********************/
   const DEFAULT_CFG = {
-    supabaseUrl: "https://gwwiwhmryyruyxrmvjbm.supabase.co",
-    supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3d2l3aG1yeXlydXl4cm12amJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NDA1MDcsImV4cCI6MjA4NjAxNjUwN30.Nl3u335qC5MylCYLjTfTm7vOu4msvl3QjplZuVPqAg4",
+    supabaseUrl: RUNTIME_CFG.supabaseUrl || "",
+    supabaseAnonKey: RUNTIME_CFG.supabaseAnonKey || "",
     amapKey: "02cb6240c341113e242b757c9c31f120",
     amapSecurityJsCode: "65611fe43ded9c43124b30e1b29cb7ff",
     amapRestKey: "6beb081c646f5b3396228c8131d39025"
@@ -634,8 +635,9 @@
   }
 
   async function loadFromSupabase(){
-    const base = SUPABASE_URL;
-    const anon = SUPABASE_ANON_KEY;
+    const cfg = loadCfg();
+    const base = (cfg.supabaseUrl || "").trim();
+    const anon = (cfg.supabaseAnonKey || "").trim();
 
     if (!base || !base.includes(".supabase.co")){
       log("warn", "Supabase URL 缺失或无效，跳过远程加载");
@@ -684,8 +686,12 @@
   }
 
   async function supaRequest(method, path, body){
-    const base = SUPABASE_URL.replace(/\/$/,"");
-    const anon = SUPABASE_ANON_KEY;
+    const cfg = loadCfg();
+    const base = (cfg.supabaseUrl || "").trim().replace(/\/$/,"");
+    const anon = (cfg.supabaseAnonKey || "").trim();
+    if (!base || !anon){
+      throw new Error("Supabase 配置缺失");
+    }
     const url = `${base}${path}`;
     const headers = {
       apikey: anon,
