@@ -1,4 +1,8 @@
-﻿/* street_food_map - split build (no bundler)
+import { createNetworkService } from "./net.js";
+import { createDataService } from "./data.js";
+import { createMapLoader } from "./map-loader.js";
+
+/* street_food_map - split build (no bundler)
  * Features preserved:
  * - Supabase REST load (fallback kb.json)
  * - Local editable store (localStorage)
@@ -102,6 +106,8 @@
   const closeBtn = document.getElementById("close");
   const loadingEl = document.getElementById("loading");
   let loadingCount = 0;
+  const network = createNetworkService({ errMsg });
+  const { showNetworkNotice, notifyIfNetworkIssue, fetchWithTimeout } = network;
 
   function showLoading(msg){
     loadingCount += 1;
@@ -193,60 +199,12 @@
    * 4) AMap dynamic loader + map helpers
    **********************/
   let markers = [];
-  let amapLoading = null;
   let userMarker = null;
-
-  function removeOldAMapScript(){
-    const olds = document.querySelectorAll('script[data-amap="1"]');
-    olds.forEach(s => s.remove());
-    try{ delete window.AMap; }catch{}
-    try{ delete window.AMapUI; }catch{}
-  }
-
-  async function ensureAMapLoaded(forceReload=false){
-    const cfg = loadCfg();
-    const key = cfg.amapKey;
-    const scode = (cfg.amapSecurityJsCode || "").trim();
-    if (!key){
-      log("error", "未配置高德 Key，地图无法加载，请在设置中填写");
-      return false;
-    }
-    if (!forceReload && window.AMap){
-      return true;
-    }
-    if (amapLoading && !forceReload){
-      return amapLoading;
-    }
-
-    amapLoading = new Promise((resolve) => {
-      if (forceReload) removeOldAMapScript();
-
-      log("info", "正在加载高德地图脚本…");
-      const s = document.createElement("script");
-      s.dataset.amap = "1";
-      const scodeParam = scode ? `&securityjscode=${encodeURIComponent(scode)}` : "";
-      s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}${scodeParam}&plugin=AMap.Geocoder,AMap.Geolocation,AMap.Driving,AMap.Walking`;
-      s.async = true;
-      s.onload = () => { log("info", "高德脚本加载完成"); resolve(true); };
-      s.onerror = () => { log("error", "高德脚本加载失败（检查 Key / 网络 / 域名白名单）"); resolve(false); };
-      document.head.appendChild(s);
-    });
-
-    return amapLoading;
-  }
-
+  const mapLoader = createMapLoader({ loadCfg, log, showNetworkNotice });
+  const ensureAMapLoaded = mapLoader.ensureAMapLoaded;
   function initMap(){
-    if (!window.AMap){
-      log("error", "高德未就绪，初始化地图取消");
-      return;
-    }
-    const center = [104.0668, 30.5728];
-    map = new AMap.Map("map", {
-      zoom: 12,
-      center,
-      viewMode: "2D"
-    });
-    log("info", "地图已初始化", `center=${center.join(",")}`);
+    map = mapLoader.initMap();
+    return map;
   }
 
   function clearMarkers(){
@@ -396,7 +354,13 @@
     }
 
     const url = `${endpoint}?${params.toString()}`;
-    const res = await fetch(url);
+    let res;
+    try{
+      res = await fetchWithTimeout(url, undefined, 15000, "路线规划");
+    }catch (e){
+      notifyIfNetworkIssue("路线规划", e);
+      throw e;
+    }
     const data = await res.json().catch(() => ({}));
 
     if (data && String(data.status) === "1"){
@@ -634,83 +598,18 @@
     localStorage.removeItem(DB_KEY);
   }
 
-  async function loadFromSupabase(){
-    const cfg = loadCfg();
-    const base = (cfg.supabaseUrl || "").trim();
-    const anon = (cfg.supabaseAnonKey || "").trim();
-
-    if (!base || !base.includes(".supabase.co")){
-      log("warn", "Supabase URL 缺失或无效，跳过远程加载");
-      return null;
-    }
-    if (!anon || !anon.startsWith("eyJ")){
-      log("warn", "Supabase anon key 缺失或无效（应为 eyJ 开头公钥），跳过远程加载");
-      return null;
-    }
-
-    const url = `${base.replace(/\/$/,"")}/rest/v1/places?select=*`;
-    log("info", "开始远程拉取：places", url);
-
-    const t0 = performance.now();
-    showLoading("正在加载数据...");
-    const res = await fetch(url, {
-      headers: { apikey: anon, Authorization: `Bearer ${anon}` },
-      cache: "no-store"
-    }).catch(e => {
-      log("error", "请求失败", errToStr(e));
-      return null;
-    });
-    hideLoading();
-    if (!res) return null;
-
-    const t1 = performance.now();
-    log("info", "远程请求完成", `status=${res.status} cost=${Math.round(t1-t0)}ms`);
-
-    if (!res.ok){
-      const txt = await res.text().catch(()=> "");
-      log("error", "远程响应非 2xx", txt || `HTTP ${res.status}`);
-      return null;
-    }
-
-    const data = await res.json().catch(e => {
-      log("error", "JSON 解析失败", errToStr(e));
-      return null;
-    });
-    if (!Array.isArray(data)){
-      log("error", "远程响应不是数组", JSON.stringify(data).slice(0, 500));
-      return null;
-    }
-
-    log("info", "远程数据数量", String(data.length));
-    return data.map(normRow);
-  }
-
-  async function supaRequest(method, path, body){
-    const cfg = loadCfg();
-    const base = (cfg.supabaseUrl || "").trim().replace(/\/$/,"");
-    const anon = (cfg.supabaseAnonKey || "").trim();
-    if (!base || !anon){
-      throw new Error("Supabase 配置缺失");
-    }
-    const url = `${base}${path}`;
-    const headers = {
-      apikey: anon,
-      Authorization: `Bearer ${anon}`,
-      "Content-Type": "application/json",
-      Prefer: "return=representation"
-    };
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined
-    });
-    if (!res.ok){
-      const txt = await res.text().catch(()=> "");
-      throw new Error(txt || `HTTP ${res.status}`);
-    }
-    const data = await res.json().catch(()=> null);
-    return data;
-  }
+  const dataService = createDataService({
+    loadCfg,
+    fetchWithTimeout,
+    notifyIfNetworkIssue,
+    showLoading,
+    hideLoading,
+    log,
+    errToStr,
+    normRow
+  });
+  const loadFromSupabase = dataService.loadFromSupabase;
+  const supaRequest = dataService.supaRequest;
 
 
   async function bootLoadData(opts){
@@ -1080,7 +979,13 @@
       city: "Nationwide"
     });
     const url = `https://restapi.amap.com/v3/geocode/geo?${params.toString()}`;
-    const res = await fetch(url);
+    let res;
+    try{
+      res = await fetchWithTimeout(url, undefined, 15000, "地理编码");
+    }catch (e){
+      notifyIfNetworkIssue("地理编码", e);
+      throw e;
+    }
     const data = await res.json().catch(() => ({}));
     if (data && String(data.status) === "1" && Array.isArray(data.geocodes) && data.geocodes.length){
       const loc = data.geocodes[0].location;
