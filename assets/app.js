@@ -228,6 +228,7 @@ import { createMapLoader } from "./map-loader.js";
     });
     m.setMap(map);
     m.on("click", () => {
+      selectItemFromMap(it);
       const title = (it.name || "（未命名）") + (it.category ? ` / ${it.category}` : "");
       const addr = [it.city, it.address].filter(Boolean).join(" ");
       const navCall = `window.__sfm_nav.openRouteTo(${JSON.stringify(String(it.id))})`;
@@ -773,6 +774,27 @@ import { createMapLoader } from "./map-loader.js";
         log("info", "已聚焦条目", `${it.id} ${it.name}`);
       });
     });
+  }
+
+  function scrollListToItem(id){
+    const list = document.getElementById("list");
+    const target = Array.from(list.querySelectorAll(".item[data-id]"))
+      .find(el => String(el.getAttribute("data-id")) === String(id));
+    if (!target) return;
+    requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
+  function selectItemFromMap(it){
+    if (!it) return;
+    selectedId = String(it.id);
+    syncEditorSelection(selectedId);
+    document.querySelectorAll("#list .item[data-id]").forEach(el => {
+      const isSelected = String(el.getAttribute("data-id")) === selectedId;
+      el.style.background = isSelected ? "#f7f7ff" : "";
+    });
+    scrollListToItem(selectedId);
   }
 
    function applyFilter(opts){
