@@ -172,15 +172,22 @@ import { createMapLoader } from "./map-loader.js";
     supabaseUrl: RUNTIME_CFG.supabaseUrl || "",
     supabaseAnonKey: RUNTIME_CFG.supabaseAnonKey || "",
     amapKey: "02cb6240c341113e242b757c9c31f120",
-    amapSecurityJsCode: "65611fe43ded9c43124b30e1b29cb7ff",
-    amapRestKey: "6beb081c646f5b3396228c8131d39025"
+    amapSecurityJsCode: "65611fe43ded9c43124b30e1b29cb7ff"
   };
 
   function loadCfg() {
     try {
       const savedRaw = localStorage.getItem(CFG_KEY);
       const saved = savedRaw ? JSON.parse(savedRaw) : {};
-      return { ...DEFAULT_CFG, ...(saved && typeof saved === "object" ? saved : {}) };
+      if (saved && typeof saved === "object"){
+        // REST Key 已停用；清理旧版本遗留在 localStorage 中的明文值。
+        if (Object.prototype.hasOwnProperty.call(saved, "amapRestKey")){
+          delete saved.amapRestKey;
+          localStorage.setItem(CFG_KEY, JSON.stringify(saved));
+        }
+        return { ...DEFAULT_CFG, ...saved };
+      }
+      return { ...DEFAULT_CFG };
     } catch (e) {
       return { ...DEFAULT_CFG };
     }
@@ -266,9 +273,10 @@ import { createMapLoader } from "./map-loader.js";
   }
 
   /**********************
-   * 4.1) Geolocation + Route Planning (backend)
+   * 4.1) Geolocation + Route Planning (AMap JS API)
    **********************/
   let geo = null;
+  let geocoderSvc = null;
   let drivingSvc = null;
   let walkingSvc = null;
   let routeLine = null;
@@ -307,15 +315,18 @@ import { createMapLoader } from "./map-loader.js";
     });
   }
 
-  function getRouteService(mode, renderOnMap){
+  function getRouteService(mode){
     if (mode === "walking"){
       if (!walkingSvc){
-        walkingSvc = new AMap.Walking({ map: renderOnMap ? map : null });
+        walkingSvc = new AMap.Walking();
       }
       return walkingSvc;
     }
     if (!drivingSvc){
-      drivingSvc = new AMap.Driving({ map: renderOnMap ? map : null });
+      drivingSvc = new AMap.Driving({
+        policy: 0,
+        extensions: "base"
+      });
     }
     return drivingSvc;
   }
@@ -326,62 +337,67 @@ import { createMapLoader } from "./map-loader.js";
 
     const options = Object.assign({
       mode: "driving",     // "driving" | "walking"
-      from: null,          // {lng,lat} or null to use current position
-      renderOnMap: false
+      from: null           // {lng,lat} or null to use current position
     }, opts || {});
+
+    const ok = await ensureAMapLoaded(false);
+    if (!ok || !window.AMap) throw new Error("高德未就绪");
 
     const fromPos = options.from || await getCurrentPosition();
     const toPos = { lng: it.lng, lat: it.lat };
-    const cfg = loadCfg();
-    const restKey = (cfg.amapRestKey || "").trim();
-    if (!restKey){
-      throw new Error("高德 REST Key 缺失");
-    }
+    const service = getRouteService(options.mode);
+    const origin = new AMap.LngLat(Number(fromPos.lng), Number(fromPos.lat));
+    const destination = new AMap.LngLat(Number(toPos.lng), Number(toPos.lat));
 
-    const isWalking = options.mode === "walking";
-    const endpoint = isWalking
-      ? "https://restapi.amap.com/v3/direction/walking"
-      : "https://restapi.amap.com/v3/direction/driving";
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        const err = new Error("timeout after 15000ms");
+        notifyIfNetworkIssue("路线规划", err);
+        reject(err);
+      }, 15000);
 
-    const params = new URLSearchParams({
-      key: restKey,
-      origin: `${fromPos.lng},${fromPos.lat}`,
-      destination: `${toPos.lng},${toPos.lat}`
-    });
-    if (!isWalking){
-      params.set("strategy", "0");
-      params.set("extensions", "base");
-    }
+      const done = (status, result) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (status === "complete" && result && Array.isArray(result.routes) && result.routes.length){
+          resolve({
+            from: fromPos,
+            to: toPos,
+            mode: options.mode,
+            result,
+            source: "amap-jsapi"
+          });
+          return;
+        }
 
-    const url = `${endpoint}?${params.toString()}`;
-    let res;
-    try{
-      res = await fetchWithTimeout(url, undefined, 15000, "路线规划");
-    }catch (e){
-      notifyIfNetworkIssue("路线规划", e);
-      throw e;
-    }
-    const data = await res.json().catch(() => ({}));
-
-    if (data && String(data.status) === "1"){
-      return {
-        from: fromPos,
-        to: toPos,
-        mode: options.mode,
-        result: data,
-        url
+        const info = (result && (result.info || result.message)) || status || "路线规划失败";
+        log("error", "路线规划失败（JS API）", JSON.stringify({
+          mode: options.mode,
+          origin: [fromPos.lng, fromPos.lat],
+          destination: [toPos.lng, toPos.lat],
+          status,
+          info
+        }));
+        reject(new Error(info));
       };
-    }
 
-    const extra = {
-      mode: options.mode,
-      origin: [fromPos.lng, fromPos.lat],
-      destination: [toPos.lng, toPos.lat],
-      info: data && (data.info || data.infocode),
-      raw: data || null
-    };
-    log("error", "路线规划失败（详情）", JSON.stringify(extra));
-    throw new Error((data && (data.info || data.infocode)) || "路线规划失败");
+      try{
+        if (options.mode === "walking"){
+          service.search(origin, destination, done);
+        }else{
+          service.search(origin, destination, {}, done);
+        }
+      }catch(e){
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(e);
+      }
+    });
   }
 
   function buildAmapNavUri(it, opts){
@@ -459,12 +475,41 @@ import { createMapLoader } from "./map-loader.js";
     }
   }
 
-  function parsePolyline(polyline){
-    if (!polyline) return [];
-    return polyline.split(";").map(p => {
-      const [lng, lat] = p.split(",").map(Number);
-      return [lng, lat];
-    }).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+  function toCoordinatePair(point){
+    if (!point) return null;
+    const lng = Number(Array.isArray(point)
+      ? point[0]
+      : (point.lng ?? (typeof point.getLng === "function" ? point.getLng() : undefined)));
+    const lat = Number(Array.isArray(point)
+      ? point[1]
+      : (point.lat ?? (typeof point.getLat === "function" ? point.getLat() : undefined)));
+    return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null;
+  }
+
+  function routeResultToPoints(result, fromPos, toPos){
+    const routePoints = [];
+    const points = [];
+    const appendTo = (target, point) => {
+      const pair = toCoordinatePair(point);
+      if (pair) target.push(pair);
+    };
+
+    const route = result && Array.isArray(result.routes) ? result.routes[0] : null;
+    if (route && Array.isArray(route.steps)){
+      for (const step of route.steps){
+        if (!step || !Array.isArray(step.path)) continue;
+        for (const point of step.path) appendTo(routePoints, point);
+      }
+    }
+    if (!routePoints.length && route && Array.isArray(route.path)){
+      for (const point of route.path) appendTo(routePoints, point);
+    }
+    if (!routePoints.length) return points;
+
+    appendTo(points, fromPos);
+    points.push(...routePoints);
+    appendTo(points, toPos);
+    return points;
   }
 
   function drawRouteLine(points){
@@ -482,25 +527,19 @@ import { createMapLoader } from "./map-loader.js";
 
   async function renderRouteTo(it, opts){
     if (!it) throw new Error("需要目标地点");
+    const ok = await ensureAMapLoaded(false);
+    if (!ok || !window.AMap) throw new Error("高德未就绪");
     if (!map) initMap();
+    if (!map) throw new Error("地图初始化失败");
     const options = Object.assign({
       mode: "driving"
     }, opts || {});
     const res = await planRouteTo(it, {
-      mode: options.mode,
-      renderOnMap: false
+      mode: options.mode
     });
 
-    const data = res && res.result;
-    const steps = data && data.route && data.route.paths && data.route.paths[0] && data.route.paths[0].steps;
-    const points = [];
-    if (Array.isArray(steps)){
-      for (const s of steps){
-        if (s && s.polyline){
-          points.push(...parsePolyline(s.polyline));
-        }
-      }
-    }
+    const points = routeResultToPoints(res && res.result, res && res.from, res && res.to);
+    if (points.length < 2) throw new Error("路线规划未返回有效路径");
     drawRouteLine(points);
     focusItem(it);
     return res;
@@ -532,7 +571,7 @@ import { createMapLoader } from "./map-loader.js";
     });
   }
 
-  // Expose backend helpers for future UI wiring
+  // Expose navigation helpers for future UI wiring
   window.__sfm_nav = {
     getCurrentPosition,
     planRouteTo,
@@ -970,31 +1009,51 @@ import { createMapLoader } from "./map-loader.js";
   });
 
   async function geocodeAddress(fullAddr){
-    const cfg = loadCfg();
-    const restKey = (cfg.amapRestKey || "").trim();
-    if (!restKey) throw new Error("高德 REST Key 缺失");
-    const params = new URLSearchParams({
-      key: restKey,
-      address: fullAddr || "",
-      city: "Nationwide"
-    });
-    const url = `https://restapi.amap.com/v3/geocode/geo?${params.toString()}`;
-    let res;
-    try{
-      res = await fetchWithTimeout(url, undefined, 15000, "地理编码");
-    }catch (e){
-      notifyIfNetworkIssue("地理编码", e);
-      throw e;
+    const address = String(fullAddr || "").trim();
+    if (!address) throw new Error("地理编码地址为空");
+
+    const ok = await ensureAMapLoaded(false);
+    if (!ok || !window.AMap) throw new Error("高德未就绪");
+    if (!geocoderSvc){
+      geocoderSvc = new AMap.Geocoder({ city: "全国" });
     }
-    const data = await res.json().catch(() => ({}));
-    if (data && String(data.status) === "1" && Array.isArray(data.geocodes) && data.geocodes.length){
-      const loc = data.geocodes[0].location;
-      const [lng, lat] = (loc || "").split(",").map(Number);
-      if (Number.isFinite(lng) && Number.isFinite(lat)){
-        return { lng, lat };
+
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        const err = new Error("timeout after 15000ms");
+        notifyIfNetworkIssue("地理编码", err);
+        reject(err);
+      }, 15000);
+
+      try{
+        geocoderSvc.getLocation(address, (status, result) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          if (status === "complete"
+              && result
+              && result.info === "OK"
+              && Array.isArray(result.geocodes)
+              && result.geocodes.length){
+            const pair = toCoordinatePair(result.geocodes[0].location);
+            if (pair){
+              resolve({ lng: pair[0], lat: pair[1] });
+              return;
+            }
+          }
+          const info = (result && (result.info || result.message)) || status || "unknown";
+          reject(new Error("地理编码失败：" + info));
+        });
+      }catch(e){
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(e);
       }
-    }
-    throw new Error("地理编码失败：" + (data.info || data.infocode || "unknown"));
+    });
   }
 
   document.getElementById("btnRelocate").addEventListener("click", async () => {
@@ -1003,10 +1062,6 @@ import { createMapLoader } from "./map-loader.js";
       const addr = [form.city, form.address].filter(Boolean).join(" ").trim();
       if (!addr){
         setEditHint("<span class='err'>城市或地址为空，无法定位</span>", "error");
-        return;
-      }
-      if (!window.AMap){
-        setEditHint("<span class='err'>Map not loaded (高德未就绪)</span>", "error");
         return;
       }
 
